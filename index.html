@@ -130,7 +130,7 @@ const API = "https://script.google.com/macros/s/AKfycbw9Vgeg-WL_5Pe3CEzzcqRVr2Kb
 const WD = "日月火水木金土", GROUPS = ["魚","肉","野菜","調味料","その他"];
 const C = ["#b5653a","#5b8f4e","#c08a2b","#4f7aa8","#a8574f","#7a6aa8","#3f8f86"];
 const ls = { get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) }catch(_){ return d } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(_){} } };
-let S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false;
+let lastErr = "", S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $ = id => document.getElementById(id);
 const num = x => Number(x) || 0;
@@ -148,7 +148,7 @@ function toast(t){ const e = document.createElement("div"); e.className = "toast
 
 // ---- 通信：失敗したら端末に貯めて、次に開いたとき・電波が戻ったときに送り直す ----
 async function call(action, body = {}){
-  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ ...body, action, pass: ls.get("pass", ""), by: me }) });
+  const r = await fetch(API, { signal: AbortSignal.timeout ? AbortSignal.timeout(90000) : undefined, method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ ...body, action, pass: ls.get("pass", ""), by: me }) });
   const j = await r.json();
   if (j.error === "pass"){ ls.set("pass", ""); render(); throw new Error("合言葉が違います") }
   if (j.error) throw new Error(j.error);
@@ -170,7 +170,7 @@ async function flush(){
   ls.set("queue", []);
   for (const [a, b] of q){ try{ await api(a, b) }catch(_){ } }
 }
-async function refresh(){ try{ await api("state", {}, { queue: false }); render() }catch(_){} }
+async function refresh(){ lastErr = ""; try{ await api("state", {}, { queue: false }) }catch(e){ lastErr = e.message || String(e) } render() }
 
 // ---- 写真：長辺1600pxのJPEGに縮めて送る ----
 function shrink(file){
@@ -221,19 +221,19 @@ function render(){
   const m = $("main");
   document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.go === (view === "detail" ? "dish" : view)));
   if (!ls.get("pass", "")){ $("ttl").textContent = "はじめに"; $("sb").textContent = ""; m.innerHTML = setupView(); return }
-  if (!S){ $("ttl").textContent = TITLES[view]; m.innerHTML = '<div class="busy"><div class="spin"></div>読み込み中</div>'; return }
+  if (!S){ $("ttl").textContent = TITLES[view]; m.innerHTML = lastErr ? `<div class="card"><p class="h2">開けませんでした</p><p class="meta">${esc(lastErr)}</p><button class="btn" data-a="retry">もう一度</button><button class="back" data-a="logout" style="margin-top:8px">合言葉を入れ直す</button></div>` : '<div class="busy"><div class="spin"></div>読み込み中</div>'; return }
   $("ttl").textContent = TITLES[view];
   const keep = draft && $("txt") ? $("txt").value : null; if (keep != null) draft.text = keep;
-  m.innerHTML = ({ week: weekView, dish: dishView, detail: detailView, fridge: fridgeView, buy: buyView, log: logView, settings: settingsView })[view]();
+  try{ m.innerHTML = ({ week: weekView, dish: dishView, detail: detailView, fridge: fridgeView, buy: buyView, log: logView, settings: settingsView })[view]() }catch(e){ m.innerHTML = `<div class="card"><p class="h2">表示でエラー</p><p class="meta">${esc(e.message)}</p></div>` }
 }
 function setupView(){
   return `<div class="card"><p class="h2">合言葉を入れてください</p><p class="meta">最初の1回だけ。この端末に保存されます</p>
-    <input id="pw" type="password" autocomplete="current-password" placeholder="合言葉">
+    <input id="pw" type="password" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="合言葉">
     <button class="btn" style="margin-top:12px" data-a="login">はじめる</button></div>`;
 }
 function weekView(){
   const plan = [...S.plan].sort((a, b) => a.date.localeCompare(b.date));
-  $("sb").textContent = plan.length ? `${md(plan[0].date)}（${wd(plan[0].date)}）〜${md(plan.at(-1).date)}（${wd(plan.at(-1).date)}）・${plan[0].status}` : "";
+  $("sb").textContent = plan.length ? `${md(plan[0].date)}（${wd(plan[0].date)}）〜${md(plan[plan.length - 1].date)}（${wd(plan[plan.length - 1].date)}）・${plan[0].status}` : "";
   if (!S.dishes.length) return inputCard() + `<div class="card empty">料理がまだありません。<br>「料理」から入れると献立を組めます</div>`;
   let h = "";
   if (!plan.length) h += `<div class="card empty">まだ献立がありません</div>`;
@@ -346,6 +346,7 @@ function settingsView(){
 async function withBusy(f){ busy = true; render(); try{ await f() }catch(_){ } finally{ busy = false; render() } }
 const A = {
   login: async () => { const pw = $("pw").value.trim(); if (!pw) return toast("合言葉を入れてください"); ls.set("pass", pw); render(); await refresh() },
+  retry: () => { lastErr = ""; render(); refresh() },
   logout: () => { ls.set("pass", ""); render() },
   input: e => openInput(e.dataset.k),
   newDish: () => openInput("dish"),
