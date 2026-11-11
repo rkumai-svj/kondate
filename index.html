@@ -268,7 +268,7 @@ const byName = n => (S?.dishes || []).find(d => d.name === String(n).replace(/[�
 // その日の品：主菜・副菜・汁・米
 const itemsOf = p => [{ label: "主菜", name: dishOf(p.dish)?.name || "", d: dishOf(p.dish) }, ...sidesOf(p).map(n => ({ label: "副菜", name: n, d: byName(n) })),
   ...(p.soup ? [{ label: "汁", name: p.soup, d: byName(p.soup) }] : []), ...(p.rice ? [{ label: "米", name: p.rice, d: byName(p.rice) }] : [])].filter(x => x.name);
-const KINDS = ["主菜", "副菜", "汁", "米"], kindOf = d => d.kind || (d.cat === "副菜" ? "副菜" : d.cat === "汁物" ? "汁" : "主菜");
+const PARTS = ["主菜", "副菜", "汁", "米"], kindOf = d => d.kind || (d.cat === "副菜" ? "副菜" : d.cat === "汁物" ? "汁" : "主菜");
 const RICE = ["白米", "玄米", "雑穀米", "炊き込みご飯", "なし（丼・麺など）"];
 // 1品ずつ選ぶ：main＝主菜、数字＝その副菜、new＝副菜を足す、soup＝汁、rice＝米
 function swapPicker(p, k){
@@ -313,7 +313,7 @@ function dishView(){
   $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => d.new && !num(d.count)).length}品`;
   return inputCard() + (draft ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) +
     `<input id="q" placeholder="料理名・材料で探す（例：厚揚げ）" value="${esc(q)}">
-    <div class="row" style="margin:8px 0">${["すべて", ...KINDS].map(c => `<button class="chip ${c === kd ? "" : "gray"}" data-a="kind" data-v="${c}">${c} ${c === "すべて" ? S.dishes.length : S.dishes.filter(d => kindOf(d) === c).length}</button>`).join("")}</div>
+    <div class="row" style="margin:8px 0">${["すべて", ...PARTS].map(c => `<button class="chip ${c === kd ? "" : "gray"}" data-a="kind" data-v="${c}">${c} ${c === "すべて" ? S.dishes.length : S.dishes.filter(d => kindOf(d) === c).length}</button>`).join("")}</div>
     <div class="scroll">${cats.map(c => `<button class="chip ${c === cat ? "" : "gray"}" data-a="cat" data-v="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}">
       <div class="ph" style="background-color:${C[i % C.length]};${ph ? `background-image:url('${thumb(ph, 200)}')` : ""}">${ph ? "" : esc(d.name[0])}</div>
@@ -330,7 +330,7 @@ function detailView(){
     <div class="hero" style="background-color:${C[0]};${photos[0] ? `background-image:url('${thumb(photos[0], 900)}')` : "background-image:linear-gradient(135deg,#b5653a,#e3a15b)"}">${esc(d.name)}</div>
     <div class="row"><span class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</span>${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
       <button class="chip ${d.want ? "yolk" : "gray"}" data-a="want">${d.want ? "★作りたい" : "☆作りたい"}</button></div>
-    <div class="row" style="margin-top:6px"><span class="meta">種類</span>${KINDS.map(c => `<button class="chip ${c === kindOf(d) ? "" : "gray"}" data-a="setKind" data-v="${c}">${c}</button>`).join("")}</div>
+    <div class="row" style="margin-top:6px"><span class="meta">種類</span>${PARTS.map(c => `<button class="chip ${c === kindOf(d) ? "" : "gray"}" data-a="setKind" data-v="${c}">${c}</button>`).join("")}</div>
     <div class="card row between"><div><div class="meta">最後に作った日</div><b>${d.last ? md(d.last) + "（" + wd(d.last) + "）" : "まだ"}</b></div><div><div class="meta">作った回数</div><b>${num(d.count)}回</b></div><div><div class="meta">調理時間${minsOf(d).real ? "（実績）" : "（推定）"}</div><b>${minsOf(d).m || "—"}分</b></div><div><div class="meta">1人分</div><b>${num(d.kcal) || "—"} kcal</b></div></div>
     ${d.kcal ? `<div class="card"><p class="h2">PFC（1人分）</p><div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend" style="margin-top:4px">P ${d.p}g ・ F ${d.f}g ・ C ${d.c}g</div></div>` : ""}
     <div class="card"><p class="h2">材料（${num(d.servings) || 2}人分）</p><table>${ing.map(g => `<tr><td>${esc(g.name)}</td><td>${esc(g.qty)}${esc(g.unit)} ${have(g.name) ? '<span class="chip">冷蔵庫</span>' : '<span class="chip warn">買う</span>'}</td></tr>`).join("") || '<tr><td class="meta">まだありません</td><td></td></tr>'}</table></div>
