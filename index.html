@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ふたりの献立</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="献立">
+<meta name="theme-color" content="#f3f5f1">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700&family=Zen+Kaku+Gothic+New:wght@400;500;700&display=swap">
+<style>
+:root{
+  --bg:#f3f5f1; --card:#fff; --fg:#1f2a22; --mut:#66736a; --line:#dde3dc;
+  --acc:#2f7a4a; --acc-soft:#e1efe5; --yolk:#c98a0c; --yolk-soft:#fbf0d6; --warn:#c2462e; --warn-soft:#f7e2dc;
+  --p:#3b6fb6; --f:#d08a1e; --c:#6a9a3a;
+  --disp:"Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+  --body:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141a16; --card:#1d2520; --fg:#e7ede8; --mut:#9aa89e; --line:#2e3832;
+  --acc:#62b07c; --acc-soft:#1f3527; --yolk:#f0b93f; --yolk-soft:#3a3018; --warn:#e8735a; --warn-soft:#3b231d;
+  --p:#7aa6e6; --f:#e8aa4c; --c:#93c262; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6;-webkit-text-size-adjust:100%}
+.app{max-width:480px;margin:0 auto;min-height:100%;display:flex;flex-direction:column}
+header{position:sticky;top:0;background:var(--bg);z-index:5;padding:calc(env(safe-area-inset-top) + 10px) 16px 8px;display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
+h1{font-family:var(--disp);font-size:24px;margin:0;line-height:1.3}
+.sub{color:var(--mut);font-size:13px;margin:0}
+.gear{background:none;border:0;color:var(--mut);padding:6px;cursor:pointer}
+.gear svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.8}
+main{flex:1;padding:4px 16px calc(96px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.between{justify-content:space-between}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.chip{font-size:12px;padding:2px 9px;border-radius:99px;background:var(--acc-soft);color:var(--acc);white-space:nowrap;border:0;font-family:inherit;cursor:pointer}
+.chip.yolk{background:var(--yolk-soft);color:var(--yolk)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.chip.gray{background:var(--bg);color:var(--mut);border:1px solid var(--line)}
+.day{display:grid;grid-template-columns:44px 1fr;gap:10px;cursor:pointer}
+.dl{font-family:var(--disp);text-align:center;line-height:1.2}
+.dl b{display:block;font-size:20px}.dl span{font-size:12px;color:var(--mut)}
+.dish{font-weight:700}
+.side{color:var(--mut);font-size:13px}
+.bento{border-color:var(--yolk)}
+.pfc{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--line);margin-top:6px}
+.pfc i{display:block}
+.legend{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;text-align:center}
+.sum div{background:var(--bg);border-radius:10px;padding:6px 2px}
+.sum b{display:block;font-size:17px;font-variant-numeric:tabular-nums}
+.sum span{font-size:11px;color:var(--mut)}
+input,textarea,select{width:100%;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:10px 12px;font:inherit;font-size:16px}
+textarea{min-height:84px;resize:vertical}
+.scroll{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:grid;grid-template-columns:56px 1fr auto;gap:10px;align-items:center;cursor:pointer}
+.ph{width:56px;height:56px;border-radius:12px;display:grid;place-items:center;font-family:var(--disp);font-size:20px;color:#fff;background-size:cover;background-position:center}
+.stars{color:var(--yolk);letter-spacing:1px;font-size:12px}
+.meta{font-size:12px;color:var(--mut)}
+.hero{height:190px;border-radius:14px;display:flex;align-items:flex-end;padding:12px;color:#fff;font-family:var(--disp);font-size:26px;text-shadow:0 1px 6px rgba(0,0,0,.45);background-size:cover;background-position:center}
+.thumbs{display:flex;gap:6px;overflow-x:auto}
+.thumbs img{flex:0 0 72px;width:72px;height:72px;border-radius:10px;object-fit:cover}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td{padding:6px 0;border-bottom:1px solid var(--line)}
+td:last-child{text-align:right;color:var(--mut)}
+ol.steps{margin:0;padding-left:22px;font-size:17px;line-height:1.8}
+ol.steps li{margin-bottom:8px}
+.btn{border:0;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;background:var(--acc);color:#fff;cursor:pointer;width:100%}
+.btn.ghost{background:var(--card);color:var(--acc);border:1px solid var(--acc)}
+.btn.small{padding:7px 10px;font-size:13px;width:auto}
+.btn:disabled{opacity:.5}
+.btn:focus-visible,.tab:focus-visible,.item:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.parsed{display:flex;flex-direction:column;gap:4px;font-size:14px;margin:6px 0}
+.ask{background:var(--yolk-soft);border-radius:12px 12px 12px 4px;padding:8px 12px;font-size:14px;margin:6px 0}
+.ask b{font-size:12px;color:var(--yolk)}
+.check{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.check:last-child{border-bottom:0}
+.box{width:22px;height:22px;border-radius:6px;border:2px solid var(--line);flex:0 0 22px;display:grid;place-items:center}
+.check.done .box{background:var(--acc);border-color:var(--acc)}
+.check.done .box::after{content:"";width:6px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
+.check.done .nm{text-decoration:line-through;color:var(--mut)}
+.why{margin-left:auto;font-size:11px;color:var(--mut);text-align:right}
+.h2{font-family:var(--disp);font-size:16px;margin:0 0 6px}
+.tl{display:grid;grid-template-columns:56px 1fr;gap:10px;align-items:center}
+nav{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);z-index:6}
+nav .in{max-width:480px;margin:0 auto;display:grid;grid-template-columns:repeat(5,1fr)}
+.tab{background:none;border:0;font:inherit;font-size:11px;color:var(--mut);padding:8px 0 10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
+.tab[aria-selected="true"]{color:var(--acc);font-weight:700}
+.back{background:none;border:0;color:var(--acc);font:inherit;padding:0;cursor:pointer;text-align:left}
+.toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:99px;font-size:13px;z-index:20;max-width:90%}
+.busy{display:flex;align-items:center;gap:8px;color:var(--mut);font-size:13px}
+.spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--acc);border-radius:50%;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.empty{color:var(--mut);text-align:center;padding:24px 8px}
+label.f{display:block;font-size:13px;color:var(--mut);margin:8px 0 4px}
+.days7{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.days7 button{padding:8px 0;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit}
+.days7 button.on{background:var(--yolk-soft);border-color:var(--yolk);color:var(--yolk);font-weight:700}
+.picker{max-height:50vh;overflow:auto}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div><h1 id="ttl">献立</h1><p class="sub" id="sb"></p></div>
+  <button class="gear" data-go="settings" aria-label="設定"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+</header>
+<main id="main"></main>
+<nav><div class="in" role="tablist">
+  <button class="tab" data-go="week" role="tab"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>献立</button>
+  <button class="tab" data-go="dish" role="tab"><svg viewBox="0 0 24 24"><path d="M4 11h16a8 8 0 0 1-16 0zM9 7c0-2 2-2 2-4M14 7c0-2 2-2 2-4"/></svg>料理</button>
+  <button class="tab" data-go="fridge" role="tab"><svg viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M5 10h14M9 5v2M9 13v3"/></svg>冷蔵庫</button>
+  <button class="tab" data-go="buy" role="tab"><svg viewBox="0 0 24 24"><path d="M3 4h2l2.5 11h11L21 7H6.5"/><circle cx="9" cy="19" r="1.5"/><circle cx="17" cy="19" r="1.5"/></svg>買うもの</button>
+  <button class="tab" data-go="log" role="tab"><svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>記録</button>
+</div></nav>
+</div>
+<input type="file" id="cam" accept="image/*" multiple hidden>
+
+<script>
+// 裏側（Apps Script）のURL。秘密ではない（合言葉がなければ何も返さない）
+const API = "https://script.google.com/macros/s/AKfycbw9Vgeg-WL_5Pe3CEzzcqRVr2KbEfInf5d7JVeIBc_7s4Q4oIOOWfsavvEQqayqP0YohA/exec";
+const WD = "日月火水木金土", GROUPS = ["魚","肉","野菜","調味料","その他"];
+const C = ["#b5653a","#5b8f4e","#c08a2b","#4f7aa8","#a8574f","#7a6aa8","#3f8f86"];
+const ls = { get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) }catch(_){ return d } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(_){} } };
+let S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false;
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const $ = id => document.getElementById(id);
+const num = x => Number(x) || 0;
+const ymd = d => d.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+const md = s => s ? (+s.slice(5,7)) + "/" + (+s.slice(8,10)) : "";
+const wd = s => WD[new Date(s + "T00:00:00").getDay()];
+const daysTo = s => Math.round((new Date(s + "T00:00:00") - new Date(ymd(new Date()) + "T00:00:00")) / 864e5);
+const thumb = (id, w = 400) => `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w${w}`;
+const dishOf = id => (S?.dishes || []).find(d => d.id === id);
+
+function toast(t){ const e = document.createElement("div"); e.className = "toast"; e.textContent = t; document.body.append(e); setTimeout(() => e.remove(), 2600) }
+
+// ---- 通信：失敗したら端末に貯めて、次に開いたとき・電波が戻ったときに送り直す ----
+async function call(action, body = {}){
+  const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain" }, body: JSON.stringify({ ...body, action, pass: ls.get("pass", ""), by: me }) });
+  const j = await r.json();
+  if (j.error === "pass"){ ls.set("pass", ""); render(); throw new Error("合言葉が違います") }
+  if (j.error) throw new Error(j.error);
+  return j;
+}
+async function api(action, body, { queue = true } = {}){
+  try{
+    const j = await call(action, body);
+    if (j.dishes){ S = j; ls.set("state", S) }
+    return j;
+  }catch(e){
+    if (queue && e instanceof TypeError){ const q = ls.get("queue", []); q.push([action, body]); ls.set("queue", q); toast("電波がないので、あとで送ります") }
+    else toast(e.message);
+    throw e;
+  }
+}
+async function flush(){
+  const q = ls.get("queue", []); if (!q.length) return;
+  ls.set("queue", []);
+  for (const [a, b] of q){ try{ await api(a, b) }catch(_){ } }
+}
+async function refresh(){ try{ await api("state", {}, { queue: false }); render() }catch(_){} }
+
+// ---- 写真：長辺1600pxのJPEGに縮めて送る ----
+function shrink(file){
+  return new Promise((ok, ng) => {
+    const img = new Image(), u = URL.createObjectURL(file);
+    img.onload = () => {
+      const k = Math.min(1, 1600 / Math.max(img.width, img.height)), c = document.createElement("canvas");
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(u); ok(c.toDataURL("image/jpeg", 0.82).split(",")[1]);
+    };
+    img.onerror = ng; img.src = u;
+  });
+}
+function pickPhotos(multi = true){
+  return new Promise(ok => {
+    const i = $("cam"); i.multiple = multi; i.value = "";
+    i.onchange = async () => ok(await Promise.all([...i.files].map(shrink)));
+    i.click();
+  });
+}
+
+// ---- 入力（声・文字・写真）→ Claudeが整える → 確認して保存 ----
+const KINDS = { buy: ["買った", "例「玉ねぎ3個買った。鶏むね300g、期限は13日」／レシートや並べた写真でも"], adjust: ["在庫を直す", "例「豚こま使い切った。卵あと2つ。もやし捨てた」／冷蔵庫の中の写真でも"], dish: ["料理を入れる", "例「鶏むね300gと長ネギ1本、塩麹で漬けて蒸し焼き10分。2人分」／本のページの写真でも"] };
+function openInput(kind, text = "", ctx = null){ draft = { kind, text, images: [], res: null, ctx }; render() }
+function inputCard(){
+  if (!draft) return "";
+  const [t, ph] = KINDS[draft.kind], r = draft.res;
+  let h = `<div class="card" id="inp"><div class="row between"><p class="h2" style="margin:0">${t}</p><button class="back" data-a="closeInput">閉じる</button></div>`;
+  if (!r){
+    h += `<p class="meta" style="margin:4px 0">${ph}。キーボードのマイクで話してOK</p>
+      <textarea id="txt" placeholder="ここに話す・打つ">${esc(draft.text)}</textarea>
+      <div class="row" style="margin-top:8px"><button class="btn ghost small" data-a="addPhoto">写真を撮る・選ぶ</button><span class="meta">${draft.images.length ? draft.images.length + "枚" : ""}</span></div>
+      <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>Claudeが読んでいます（写真は数秒〜20秒）</div>' : '<button class="btn" data-a="parse">読み取る</button>'}</div>`;
+  } else {
+    h += `<p class="meta" style="margin:4px 0 0">Claudeが読み取った内容（違う行は押すと外せます）</p><div class="parsed">`;
+    (r.summary || []).forEach((s, i) => h += `<div class="row between" data-a="dropLine" data-i="${i}" style="cursor:pointer"><span>${esc(s)}</span><span class="meta">✕</span></div>`);
+    h += `</div>`;
+    if ((r.questions || []).length) h += r.questions.map(q => `<div class="ask"><b>Claudeから</b><br>${esc(q)}</div>`).join("") + `<textarea id="ans" placeholder="答える（声でも）"></textarea>`;
+    h += busy ? '<div class="busy"><div class="spin"></div>保存しています</div>' : `<div class="grid2" style="margin-top:8px">${(r.questions || []).length ? '<button class="btn ghost" data-a="answer">答えて読み直す</button>' : '<button class="btn ghost" data-a="redo">やり直す</button>'}<button class="btn" data-a="save">保存</button></div>`;
+  }
+  return h + `</div>`;
+}
+
+// ---- 画面 ----
+const TITLES = { week: "今週の献立", dish: "料理", detail: "料理", fridge: "冷蔵庫", buy: "買うもの", log: "記録", settings: "設定" };
+function render(){
+  const m = $("main");
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.go === (view === "detail" ? "dish" : view)));
+  if (!ls.get("pass", "") || !me){ $("ttl").textContent = "はじめに"; $("sb").textContent = ""; m.innerHTML = setupView(); return }
+  if (!S){ $("ttl").textContent = TITLES[view]; m.innerHTML = '<div class="busy"><div class="spin"></div>読み込み中</div>'; return }
+  $("ttl").textContent = TITLES[view];
+  const keep = draft && $("txt") ? $("txt").value : null; if (keep != null) draft.text = keep;
+  m.innerHTML = ({ week: weekView, dish: dishView, detail: detailView, fridge: fridgeView, buy: buyView, log: logView, settings: settingsView })[view]();
+}
+function setupView(){
+  return `<div class="card"><p class="h2">合言葉を入れてください</p><p class="meta">最初の1回だけ。この端末に保存されます</p>
+    <input id="pw" type="password" autocomplete="current-password" placeholder="合言葉">
+    <label class="f">使う人</label><div class="grid2"><button class="btn ${me === "殿" ? "" : "ghost"}" data-a="me" data-v="殿">殿</button><button class="btn ${me === "知佳" ? "" : "ghost"}" data-a="me" data-v="知佳">知佳</button></div>
+    <button class="btn" style="margin-top:12px" data-a="login">はじめる</button></div>`;
+}
+function weekView(){
+  const plan = [...S.plan].sort((a, b) => a.date.localeCompare(b.date));
+  $("sb").textContent = plan.length ? `${md(plan[0].date)}（${wd(plan[0].date)}）〜${md(plan.at(-1).date)}（${wd(plan.at(-1).date)}）・${plan[0].status}` : "";
+  if (!S.dishes.length) return inputCard() + `<div class="card empty">料理がまだありません。<br>「料理」から入れると献立を組めます</div>`;
+  let h = "";
+  if (!plan.length) h += `<div class="card empty">まだ献立がありません</div>`;
+  else {
+    const kc = plan.map(p => num(dishOf(p.dish)?.kcal)).filter(Boolean);
+    h += `<div class="card"><div class="row between"><b class="h2" style="margin:0">見通し</b>${plan[0].status === "案" ? '<span class="chip yolk">案（気に入らない日だけ押して差し替え）</span>' : '<span class="chip">確定</span>'}</div>
+      <p class="meta" style="margin:4px 0 0">夕食の平均 ${kc.length ? Math.round(kc.reduce((a, b) => a + b, 0) / kc.length) : "—"} kcal（1人分・推定）</p></div>`;
+    h += plan.map(p => {
+      const d = dishOf(p.dish) || { name: "（消えた料理）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
+      return `<div class="card day ${p.bento ? "bento" : ""}" data-a="swap" data-date="${p.date}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span></div><div style="min-width:0">
+        <div class="row between"><span class="dish">${esc(d.name)}</span>${p.big ? '<span class="chip yolk">多めに作る</span>' : ""}</div>
+        <div class="side">${esc(p.sides)}</div>${p.bento ? `<div class="side" style="color:var(--fg)">お弁当：${esc(p.bento)}</div>` : ""}
+        ${d.kcal ? `<div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend">${d.kcal} kcal・P${d.p} F${d.f} C${d.c}（1人分）</div>` : ""}
+      </div></div>${cur === "swap:" + p.date ? swapPicker(p) : ""}`;
+    }).join("");
+    if (plan[0].status === "案") h += `<button class="btn" data-a="confirm">この献立で確定</button>`;
+  }
+  h += `<div class="card"><p class="h2">組み直す</p><textarea id="wants" placeholder="食べたいもの・希望（例：月曜は魚がいい）"></textarea>
+    <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">この希望で組み直す</button>'}</div></div>`;
+  return h;
+}
+function swapPicker(p){
+  const q = (ls.get("swapq", "") || "").trim();
+  const list = S.dishes.filter(d => !q || d.name.includes(q) || (d.cat || "").includes(q)).sort((a, b) => (a.last || "").localeCompare(b.last || ""));
+  return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）を差し替える</p><input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">
+    <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="setDay" data-date="${p.date}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
+    <button class="back" data-a="closeSwap" style="margin-top:8px">やめる</button></div>`;
+}
+function dishView(){
+  const q = ls.get("q", ""), cat = ls.get("cat", "すべて");
+  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.map(d => d.cat).filter(Boolean))];
+  const list = S.dishes.filter(d => (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
+    && (cat === "すべて" || (cat === "作りたい" ? d.want : cat === "お弁当" ? d.bento : cat === "作ったことない" ? !num(d.count) : d.cat === cat)));
+  $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => !num(d.count)).length}品`;
+  return inputCard() + (draft ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) +
+    `<input id="q" placeholder="料理名・材料で探す（例：厚揚げ）" value="${esc(q)}">
+    <div class="scroll">${cats.map(c => `<button class="chip ${c === cat ? "" : "gray"}" data-a="cat" data-v="${esc(c)}">${esc(c)}</button>`).join("")}</div>
+    <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}">
+      <div class="ph" style="background-color:${C[i % C.length]};${ph ? `background-image:url('${thumb(ph, 200)}')` : ""}">${ph ? "" : esc(d.name[0])}</div>
+      <div style="min-width:0"><div class="dish">${esc(d.name)}</div><div class="meta">${esc(d.cat)}${d.est ? "・推定" : ""}</div></div>
+      <div style="text-align:right">${num(d.count) ? `<div class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</div>` : '<span class="chip warn">作ったことない</span>'}<div class="meta">${d.last ? md(d.last) + "・" : ""}${num(d.count)}回</div></div></div>` }).join("") || '<div class="empty">見つかりません</div>'}</div>`;
+}
+function detailView(){
+  const d = dishOf(cur); if (!d){ view = "dish"; return dishView() }
+  $("sb").textContent = d.name;
+  const photos = JSON.parse(d.photos || "[]"), steps = JSON.parse(d.steps || "[]"), ing = S.ing.filter(g => g.dish === d.id);
+  const have = n => S.stock.some(s => s.name.replace(/\s/g, "") === n.replace(/\s/g, "") && s.level !== "ない");
+  const pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
+  return `<button class="back" data-go="dish">‹ 料理一覧</button>
+    <div class="hero" style="background-color:${C[0]};${photos[0] ? `background-image:url('${thumb(photos[0], 900)}')` : "background-image:linear-gradient(135deg,#b5653a,#e3a15b)"}">${esc(d.name)}</div>
+    <div class="row"><span class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</span>${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
+      <button class="chip ${d.want ? "yolk" : "gray"}" data-a="want">${d.want ? "★作りたい" : "☆作りたい"}</button></div>
+    <div class="card row between"><div><div class="meta">最後に作った日</div><b>${d.last ? md(d.last) + "（" + wd(d.last) + "）" : "まだ"}</b></div><div><div class="meta">作った回数</div><b>${num(d.count)}回</b></div><div><div class="meta">1人分</div><b>${num(d.kcal) || "—"} kcal</b></div></div>
+    ${d.kcal ? `<div class="card"><p class="h2">PFC（1人分）</p><div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend" style="margin-top:4px">P ${d.p}g ・ F ${d.f}g ・ C ${d.c}g</div></div>` : ""}
+    <div class="card"><p class="h2">材料（${num(d.servings) || 2}人分）</p><table>${ing.map(g => `<tr><td>${esc(g.name)}</td><td>${esc(g.qty)}${esc(g.unit)} ${have(g.name) ? '<span class="chip">冷蔵庫</span>' : '<span class="chip warn">買う</span>'}</td></tr>`).join("") || '<tr><td class="meta">まだありません</td><td></td></tr>'}</table></div>
+    <div class="card"><p class="h2">作り方</p>${steps.length ? `<ol class="steps">${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : '<p class="meta">まだありません。「直す」で足せます</p>'}${d.source ? `<p class="meta">出典：${esc(d.source)}</p>` : ""}</div>
+    ${photos.length ? `<div class="card"><div class="row between"><p class="h2" style="margin:0">写真</p><span class="meta">${photos.length}枚</span></div><div class="thumbs" style="margin-top:8px">${photos.map(p => `<img src="${thumb(p, 300)}" alt="" loading="lazy">`).join("")}</div></div>` : ""}
+    ${inputCard()}
+    ${busy ? '<div class="busy"><div class="spin"></div>送っています</div>' : `<button class="btn" data-a="made" data-photo="1">今日これ作った（写真を撮る）</button>
+    <div class="grid2"><button class="btn ghost" data-a="made">作った（写真なし）</button><button class="btn ghost" data-a="addDishPhoto">写真を足す</button></div>
+    ${draft ? "" : '<button class="btn ghost" data-a="fixDish">この料理を直す（声で）</button>'}`}`;
+}
+function fridgeView(){
+  const st = S.stock, soon = st.filter(s => s.expires && daysTo(s.expires) <= 3).sort((a, b) => a.expires.localeCompare(b.expires));
+  const used = new Set(S.plan.flatMap(p => S.ing.filter(g => g.dish === p.dish).map(g => g.name.replace(/\s/g, ""))));
+  $("sb").textContent = st.length ? `${st.length}品・最後に入れた ${md([...st].sort((a, b) => b.updated.localeCompare(a.updated))[0].updated)}（${[...st].sort((a, b) => b.updated.localeCompare(a.updated))[0].by}）` : "";
+  let h = draft ? inputCard() : `<div class="grid2"><button class="btn" data-a="input" data-k="buy">買った</button><button class="btn ghost" data-a="input" data-k="adjust">在庫を直す</button></div>`;
+  if (soon.length) h += `<div class="card"><div class="row between"><p class="h2" style="margin:0">早めに使う</p><span class="chip warn">${soon.length}つ</span></div>${soon.map(s => { const n = daysTo(s.expires); return `<div class="check"><span class="nm">${esc(s.name)}</span><span class="why"><span class="chip ${n <= 1 ? "warn" : "yolk"}">${n < 0 ? "期限切れ" : n === 0 ? "今日まで" : "あと" + n + "日"}${s.est ? "（目安）" : ""}</span><br>${used.has(s.name.replace(/\s/g, "")) ? "献立で使う" : "献立に入っていない→組み直す"}</span></div>` }).join("")}</div>`;
+  h += GROUPS.map(g => { const xs = st.filter(s => (GROUPS.includes(s.group) ? s.group : "その他") === g); return xs.length ? `<div class="card"><p class="h2">${g}</p><div class="row">${xs.map(s => `<span class="chip ${s.level === "ない" ? "warn" : s.level === "少ない" ? "yolk" : "gray"}">${esc(s.name)} ${s.level ? esc(s.level) : esc(s.qty) + esc(s.unit)}${s.expires ? "・" + md(s.expires) + (s.est ? "目安" : "") : ""}</span>`).join("")}</div></div>` : "" }).join("");
+  return h + (st.length ? "" : `<div class="card empty">冷蔵庫は空です。「買った」から入れてください</div>`);
+}
+function buyView(){
+  const b = S.buy;
+  $("sb").textContent = b.length ? `${b.length}品・残り ${b.filter(x => !x.done).length}品` : "";
+  if (!b.length) return `<div class="card empty">買うものはありません（献立を組むと出ます）</div>` + (draft ? inputCard() : "");
+  return `<div class="card"><p class="meta" style="margin:0">献立に要る材料から、冷蔵庫にある分を引いた残り</p></div>` +
+    GROUPS.map(g => { const xs = b.filter(x => (GROUPS.includes(x.group) ? x.group : "その他") === g); return xs.length ? `<div class="card"><p class="h2">${g}</p>${xs.map(x => `<div class="check ${x.done ? "done" : ""}" role="checkbox" aria-checked="${!!x.done}" tabindex="0" data-a="buyDone" data-n="${esc(x.name)}"><div class="box"></div><span class="nm">${esc(x.name)} ${x.qty ? esc(x.qty) + esc(x.unit) : ""}</span><span class="why">${esc(x.for)}</span></div>`).join("")}</div>` : "" }).join("") +
+    (draft ? inputCard() : `<button class="btn ghost" data-a="boughtToFridge">チェックしたものを冷蔵庫へ入れる</button>`);
+}
+function logView(){
+  const now = ymd(new Date()), ym = now.slice(0, 7), d0 = new Date(); d0.setMonth(d0.getMonth() - 1); const pm = ymd(d0).slice(0, 7);
+  const sum = (xs, k = "amount") => xs.reduce((a, x) => a + num(x[k]), 0);
+  const home = S.money.filter(x => x.kind !== "外食"), out = S.money.filter(x => x.kind === "外食");
+  const tm = sum(home.filter(x => x.date.startsWith(ym))), lm = sum(home.filter(x => x.date.startsWith(pm)));
+  const day = +now.slice(8, 10), lastDays = new Date(+pm.slice(0, 4), +pm.slice(5, 7), 0).getDate();
+  const waste = sum(S.waste.filter(x => x.date.startsWith(ym)), "yen");
+  const madeM = S.made.filter(x => x.date.startsWith(ym));
+  $("sb").textContent = `${+ym.slice(5)}月`;
+  return `<div class="card"><div class="row between"><p class="h2" style="margin:0">${+ym.slice(5)}月の食費（自炊）</p><span class="meta">レシートから</span></div>
+    <div class="sum" style="margin-top:8px"><div><b>${tm.toLocaleString()}</b><span>円・${day}日まで</span></div><div><b>${Math.round(tm / day).toLocaleString()}</b><span>円/日</span></div><div><b>${waste.toLocaleString()}</b><span>円 捨てた分</span></div></div>
+    <p class="meta" style="margin:8px 0 0">先月は1日 ${lm ? Math.round(lm / lastDays).toLocaleString() + "円" : "—"}・外食 今月 ${sum(out.filter(x => x.date.startsWith(ym))).toLocaleString()}円</p></div>
+    <div class="card row between"><div><div class="meta">今月作った</div><b>${madeM.length}回</b></div><div><div class="meta">捨てた食材</div><b>${S.waste.filter(x => x.date.startsWith(ym)).length}</b></div><div><div class="meta">レパートリー</div><b>${S.dishes.length}品</b></div></div>
+    <div class="list">${[...S.made].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 40).map((m, i) => { const d = dishOf(m.dish) || { name: "?" }; return `<div class="card tl" data-a="open" data-id="${m.dish}" style="cursor:pointer"><div class="ph" style="background-color:${C[i % C.length]};${m.photo ? `background-image:url('${thumb(m.photo, 200)}')` : ""}">${m.photo ? "" : esc(d.name[0])}</div><div><div class="meta">${md(m.date)}（${wd(m.date)}）・${esc(m.by)}</div><div class="dish">${esc(d.name)}</div></div></div>` }).join("") || '<div class="empty">まだ記録がありません</div>'}</div>`;
+}
+function settingsView(){
+  const s = S.settings, bd = s.bento_days.split(",").filter(Boolean).map(Number);
+  const sel = (k, opts) => `<select id="s_${k}">${opts.map(([v, t]) => `<option value="${v}" ${String(s[k]) === String(v) ? "selected" : ""}>${t}</option>`).join("")}</select>`;
+  const days = [...WD].map((w, i) => [i, w + "曜"]), hours = [...Array(24)].map((_, i) => [i, i + "時"]);
+  $("sb").textContent = "";
+  return `<div class="card"><p class="h2">献立の案を出す</p><div class="grid2">${sel("plan_day", days)}${sel("plan_hour", hours)}</div><p class="meta">この時刻に、翌日から7日分の案を自動で組みます</p></div>
+    <div class="card"><p class="h2">知らせる（カレンダー＋通知）</p><div class="grid2">${sel("notify_day", days)}${sel("notify_hour", hours)}</div>
+      <label class="f">知佳ちゃんのGmail（カレンダーに招待）</label><input id="s_chika_email" type="email" value="${esc(s.chika_email)}" placeholder="例：xxxx@gmail.com"></div>
+    <div class="card"><p class="h2">お弁当の曜日</p><div class="days7">${[...WD].map((w, i) => `<button data-a="bday" data-v="${i}" class="${bd.includes(i) ? "on" : ""}">${w}</button>`).join("")}</div><p class="meta">前の晩を多めに作って回します</p></div>
+    <div class="card"><p class="h2">買い物の曜日</p>${sel("shop_day", days)}</div>
+    ${busy ? '<div class="busy"><div class="spin"></div>保存しています</div>' : '<button class="btn" data-a="saveSettings">保存</button>'}
+    <div class="card"><p class="meta" style="margin:0">この端末：${esc(me)}</p><button class="back" data-a="logout" style="margin-top:6px">合言葉を入れ直す</button></div>`;
+}
+
+// ---- 操作 ----
+async function withBusy(f){ busy = true; render(); try{ await f() }catch(_){ } finally{ busy = false; render() } }
+const A = {
+  me: e => { me = e.dataset.v; ls.set("me", me); const pw = $("pw")?.value; render(); if (pw && $("pw")) $("pw").value = pw },
+  login: async () => { const pw = $("pw").value.trim(); if (!pw || !me) return toast("合言葉と使う人を選んでください"); ls.set("pass", pw); ls.set("me", me); render(); await refresh() },
+  logout: () => { ls.set("pass", ""); render() },
+  input: e => openInput(e.dataset.k),
+  newDish: () => openInput("dish"),
+  closeInput: () => { draft = null; render() },
+  addPhoto: async () => { draft.text = $("txt").value; draft.images.push(...await pickPhotos()); render() },
+  parse: () => { draft.text = $("txt").value; if (!draft.text.trim() && !draft.images.length) return toast("話すか写真を入れてください");
+    withBusy(async () => { draft.res = await call("parse", { kind: draft.kind, text: draft.ctx ? `この料理を直す：${JSON.stringify(draft.ctx)}\n${draft.text}` : draft.text, images: draft.images }) }) },
+  answer: () => { const a = $("ans").value; withBusy(async () => { draft.res = await call("parse", { kind: draft.kind, text: a, ctx: draft.res }) }) },
+  redo: () => { draft.res = null; render() },
+  dropLine: e => { const i = +e.dataset.i, r = draft.res, line = r.summary[i]; r.summary.splice(i, 1);
+    ["stock", "money", "dishes"].forEach(k => r[k] = (r[k] || []).filter(x => !line.includes(x.name || x.store || "\u0000"))); render() },
+  save: () => withBusy(async () => { await api("apply", { data: draft.res }); toast("保存しました"); draft = null }),
+  open: e => { cur = e.dataset.id; draft = null; go("detail") },
+  cat: e => { ls.set("cat", e.dataset.v); render() },
+  want: () => { const d = dishOf(cur); withBusy(() => api("apply", { data: { dishes: [{ ...d, want: !d.want, bento: !!d.bento, freeze: !!d.freeze, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id) }] }, est: !!d.est })) },
+  made: async e => { const ph = e.dataset.photo ? (await pickPhotos(false))[0] : null; if (e.dataset.photo && !ph) return;
+    withBusy(async () => { await api("made", { dish: cur, date: ymd(new Date()), photo: ph }); toast("記録しました。材料を在庫から減らしました") }) },
+  addDishPhoto: async () => { const ph = (await pickPhotos(false))[0]; if (ph) withBusy(() => api("photo", { dish: cur, photo: ph })) },
+  fixDish: () => { const d = dishOf(cur); openInput("dish", "", { name: d.name, cat: d.cat, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit }) => ({ name, qty, unit })), servings: d.servings }) },
+  swap: e => { cur = "swap:" + e.dataset.date; ls.set("swapq", ""); render() },
+  closeSwap: () => { cur = null; render() },
+  setDay: e => { const p = S.plan.find(x => x.date === e.dataset.date); p.dish = e.dataset.id; cur = null; render(); api("setDay", { date: e.dataset.date, dish: e.dataset.id }).then(render, () => {}) },
+  confirm: () => { S.plan.forEach(p => p.status = "確定"); render(); api("confirm").then(render, () => {}) },
+  plan: () => { const w = $("wants").value; withBusy(async () => { await api("plan", { wants: w }, { queue: false }); toast("組み直しました") }) },
+  buyDone: e => { const x = S.buy.find(b => b.name === e.dataset.n); x.done = x.done ? "" : "1"; ls.set("state", S); render(); api("buyDone", { name: x.name, done: !!x.done }).catch(() => {}) },
+  boughtToFridge: () => { const xs = S.buy.filter(b => b.done); if (!xs.length) return toast("チェックしたものがありません"); openInput("buy", xs.map(x => `${x.name}${x.qty ? " " + x.qty + x.unit : ""}`).join("、") + " を買った") },
+  bday: e => { const s = S.settings, set = new Set(s.bento_days.split(",").filter(Boolean)); set.has(e.dataset.v) ? set.delete(e.dataset.v) : set.add(e.dataset.v); s.bento_days = [...set].sort().join(","); render() },
+  saveSettings: () => { const v = { bento_days: S.settings.bento_days }; ["plan_day", "plan_hour", "notify_day", "notify_hour", "shop_day", "chika_email"].forEach(k => v[k] = $("s_" + k).value.trim()); withBusy(async () => { await api("settings", { values: v }); toast("保存しました") }) },
+};
+function go(v){ view = v; render(); window.scrollTo(0, 0) }
+document.addEventListener("click", e => {
+  const g = e.target.closest("[data-go]"); if (g){ draft = null; cur = g.dataset.go === "detail" ? cur : null; go(g.dataset.go); return }
+  const a = e.target.closest("[data-a]"); if (a && A[a.dataset.a] && !busy) A[a.dataset.a](a);
+});
+document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches(".item,.check")) e.target.click() });
+function onSearch(e){
+  if (e.isComposing || !["q", "swapq"].includes(e.target.id)) return; // 日本語の変換中は描き直さない
+  const id = e.target.id, p = e.target.selectionStart; ls.set(id, e.target.value); render();
+  const q = $(id); if (q){ q.focus(); q.setSelectionRange(p, p) }
+}
+document.addEventListener("input", onSearch);
+document.addEventListener("compositionend", onSearch);
+window.addEventListener("online", flush);
+document.addEventListener("visibilitychange", () => { if (!document.hidden && ls.get("pass", "")) flush().then(refresh) });
+render();
+if (ls.get("pass", "")) flush().then(refresh);
+</script>
+</body>
+</html>
