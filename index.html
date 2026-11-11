@@ -297,7 +297,7 @@ function cookView(){
       const ing = S.ing.filter(g => g.dish === d.id), steps = JSON.parse(d.steps || "[]"), k = p.big && x.label === "主菜" ? "×1.5" : "";
       const done = S.made.some(m => m.dish === d.id && m.date === ymd(new Date()));
       return `<div class="card"><div class="row between"><span><span class="meta">${x.label}</span>　<b style="font-size:18px">${esc(d.name)}</b></span><span class="meta">${minsTxt(d)}</span></div>
-        <table style="margin-top:6px">${ing.map(g => `<tr><td>${esc(g.name)}</td><td>${esc(g.qty)}${esc(g.unit)}${k} ${have(g.name) ? "" : '<span class="chip warn">ない</span>'}</td></tr>`).join("")}</table>
+        <table style="margin-top:6px">${ing.map(g => `<tr><td>${esc(g.name)}</td><td>${esc(g.qty)}${esc(g.unit)}${k} ${have(g.name) || (g.group === "調味料" && !S.stock.some(x => x.name === g.name)) ? "" : '<span class="chip warn">ない</span>'}</td></tr>`).join("")}</table>
         ${steps.length ? `<ol class="steps" style="margin-top:8px">${steps.map(t => `<li>${esc(t)}</li>`).join("")}</ol>` : ""}
         ${done ? '<p class="chip" style="display:inline-block">今日作った</p>' : `<div class="row" style="margin-top:8px;flex-wrap:nowrap"><input id="mins_${d.id}" type="number" inputmode="numeric" placeholder="かかった分" style="width:110px"><button class="btn small" data-a="made" data-id="${d.id}">作った</button><button class="btn ghost small" data-a="made" data-id="${d.id}" data-photo="1">写真で</button></div>`}
       </div>`;
