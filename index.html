@@ -236,15 +236,16 @@ function weekView(){
   $("sb").textContent = plan.length ? `${md(plan[0].date)}（${wd(plan[0].date)}）〜${md(plan[plan.length - 1].date)}（${wd(plan[plan.length - 1].date)}）・${plan[0].status}` : "";
   if (!S.dishes.length) return inputCard() + `<div class="card empty">料理がまだありません。<br>「料理」から入れると献立を組めます</div>`;
   let h = "";
-  if (!plan.length) h += `<div class="card empty">まだ献立がありません</div>`;
+  if (!plan.length) h += `<div class="card empty">まだ献立がありません</div><button class="btn" data-a="addToday">今日の分を入れる</button>`;
   else {
     const kc = plan.map(p => num(dishOf(p.dish)?.kcal)).filter(Boolean);
     h += `<div class="card"><div class="row between"><b class="h2" style="margin:0">見通し</b>${plan[0].status === "案" ? '<span class="chip yolk">案（気に入らない日だけ押して差し替え）</span>' : '<span class="chip">確定</span>'}</div>
       <p class="meta" style="margin:4px 0 0">夕食の平均 ${kc.length ? Math.round(kc.reduce((a, b) => a + b, 0) / kc.length) : "—"} kcal（1人分・推定）</p></div>`;
     const td = plan.find(p => p.date === ymd(new Date()));
+    if (!td) h += `<div class="card"><p class="h2">今日の献立がまだありません</p><button class="btn" data-a="addToday">今日の分を入れる</button></div>`;
     if (td) h += `<div class="card" style="border-color:var(--acc)"><p class="h2">今日つくる</p><p style="margin:0 0 8px">${esc(itemsOf(td).filter(x => x.label !== "米").map(x => x.name).join("・"))}</p><button class="btn" data-a="cook" data-date="${td.date}">作る画面を開く</button></div>`;
     h += plan.map(p => {
-      const d = dishOf(p.dish) || { name: "（消えた料理）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
+      const d = dishOf(p.dish) || { name: p.dish ? "（消えた料理）" : "（未定・押して選ぶ）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
       const lab = t => `<span class="meta" style="flex:0 0 28px">${t}</span>`;
       return `<div class="card day ${p.bento ? "bento" : ""}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span><button class="chip" data-a="cook" data-date="${p.date}" style="margin-top:6px">作る</button></div><div style="min-width:0;display:flex;flex-direction:column;gap:4px">
         <div class="row" style="flex-wrap:nowrap">${lab("主菜")}<span class="dish" data-a="swap" data-k="${p.date}|main" style="cursor:pointer;flex:1">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span></div>
@@ -419,6 +420,8 @@ const A = {
     else if (k === "new") sides.push(name); else sides[+k] = name;
     p.sides = sides.join("・"); cur = null; render();
     api("setDay", { date: p.date, dish: p.dish, sides: p.sides, soup: p.soup || "", rice: p.rice || "" }).then(render, () => {}) },
+  addToday: () => { const t = ymd(new Date()); if (!S.plan.some(p => p.date === t)) S.plan.push({ date: t, dish: "", sides: "", soup: "", rice: "白米", bento: "", big: "", status: S.plan[0]?.status || "確定" });
+    cur = "swap:" + t + "|main"; render(); api("setDay", { date: t, dish: "", sides: "", soup: "", rice: "白米" }).then(render, () => {}) },
   cook: e => { cur = e.dataset.date; draft = null; go("cook") },
   teach: e => openInput("dish", e.dataset.n + " の作り方："),
   quick: e => { cur = null; withBusy(async () => { await api("quick", { date: e.dataset.date }, { queue: false }); toast("短く作れる料理に替えました") }) },
