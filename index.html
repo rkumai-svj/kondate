@@ -130,7 +130,7 @@ const API = "https://script.google.com/macros/s/AKfycbw9Vgeg-WL_5Pe3CEzzcqRVr2Kb
 const WD = "日月火水木金土", GROUPS = ["魚","肉","野菜","調味料","その他"];
 const C = ["#b5653a","#5b8f4e","#c08a2b","#4f7aa8","#a8574f","#7a6aa8","#3f8f86"];
 const ls = { get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) }catch(_){ return d } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(_){} } };
-let lastErr = "", S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false;
+let lastErr = "", S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false, edit = null;
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $ = id => document.getElementById(id);
 const num = x => Number(x) || 0;
@@ -306,30 +306,55 @@ function cookView(){
     }).join("");
 }
 function dishView(){
-  const q = ls.get("q", ""), cat = ls.get("cat", "すべて"), kd = ls.get("kind", "すべて");
-  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.filter(d => kd === "すべて" || kindOf(d) === kd).map(d => d.cat).filter(c => c && c !== "作りたい"))];
+  const q = ls.get("q", ""), kd = ls.get("kind", "すべて");
   const list = S.dishes.filter(d => (kd === "すべて" || kindOf(d) === kd) && (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
-    && (cat === "すべて" || (cat === "作りたい" ? d.want : cat === "お弁当" ? d.bento : cat === "作ったことない" ? (d.new && !num(d.count)) : d.cat === cat)));
+);
   $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => d.new && !num(d.count)).length}品`;
   return inputCard() + (draft ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) +
-    `<input id="q" placeholder="料理名・材料で探す（例：厚揚げ）" value="${esc(q)}">
+    `<input id="q" placeholder="料理名・材料・種類で探す（例：厚揚げ、鶏肉）" value="${esc(q)}">
     <div class="row" style="margin:8px 0">${["すべて", ...PARTS].map(c => `<button class="chip ${c === kd ? "" : "gray"}" data-a="kind" data-v="${c}">${c} ${c === "すべて" ? S.dishes.length : S.dishes.filter(d => kindOf(d) === c).length}</button>`).join("")}</div>
-    <div class="scroll">${cats.map(c => `<button class="chip ${c === cat ? "" : "gray"}" data-a="cat" data-v="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}">
       <div class="ph" style="background-color:${C[i % C.length]};${ph ? `background-image:url('${thumb(ph, 200)}')` : ""}">${ph ? "" : esc(d.name[0])}</div>
       <div style="min-width:0"><div class="dish">${esc(d.name)}</div><div class="meta">${kindOf(d)}・${esc(d.cat)}${minsTxt(d) ? "・" + minsTxt(d) : ""}${d.est ? "・推定" : ""}</div></div>
       <div style="text-align:right">${!(d.new && !num(d.count)) ? `<div class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</div>` : '<span class="chip warn">作ったことない</span>'}<div class="meta">${d.last ? md(d.last) + "・" : ""}${num(d.count)}回</div></div></div>` }).join("") || '<div class="empty">見つかりません</div>'}</div>`;
 }
+const STARS = n => [1, 2, 3].map(i => `<button class="chip ${i <= n ? "yolk" : "gray"}" data-a="star" data-v="${i}">★</button>`).join("");
+function editView(){
+  const e = edit, G = ["魚", "肉", "野菜", "調味料", "その他"];
+  const sel = (v, i) => `<select data-ig="${i}" data-f="group">${G.map(g => `<option ${g === v ? "selected" : ""}>${g}</option>`).join("")}</select>`;
+  return `<button class="back" data-a="editCancel">‹ やめる</button>
+    <div class="card"><label class="f" style="margin-top:0">名前</label><input data-e="name" value="${esc(e.name)}">
+      <label class="f">種類</label><div class="row">${PARTS.map(c => `<button class="chip ${c === e.kind ? "" : "gray"}" data-a="eKind" data-v="${c}">${c}</button>`).join("")}</div>
+      <label class="f">分類（例：鶏肉・魚・休日）</label><input data-e="cat" value="${esc(e.cat)}" list="cats"><datalist id="cats">${[...new Set(S.dishes.map(d => d.cat).filter(Boolean))].map(c => `<option value="${esc(c)}">`).join("")}</datalist>
+      <label class="f">難しさ</label><div class="row">${STARS(num(e.stars) || 1)}</div>
+      <div class="grid2"><div><label class="f">調理時間（分）</label><input data-e="mins" type="number" inputmode="numeric" value="${esc(e.mins)}"></div><div><label class="f">何人分</label><input data-e="servings" type="number" inputmode="numeric" value="${esc(e.servings)}"></div></div>
+      <div class="row" style="margin-top:8px"><button class="chip ${e.bento ? "yolk" : "gray"}" data-a="eFlag" data-v="bento">お弁当OK</button><button class="chip ${e.freeze ? "yolk" : "gray"}" data-a="eFlag" data-v="freeze">冷凍OK</button><button class="chip ${e.want ? "yolk" : "gray"}" data-a="eFlag" data-v="want">作りたい</button></div></div>
+    <div class="card"><p class="h2">材料</p>${e.ing.map((g, i) => `<div style="margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line)"><input data-ig="${i}" data-f="name" value="${esc(g.name)}" placeholder="材料"><div class="row" style="flex-wrap:nowrap;margin-top:4px"><input data-ig="${i}" data-f="qty" value="${esc(g.qty)}" inputmode="decimal" placeholder="量"><input data-ig="${i}" data-f="unit" value="${esc(g.unit)}" placeholder="単位">${sel(g.group, i)}<button class="chip gray" data-a="eDel" data-t="ing" data-i="${i}">消す</button></div></div>`).join("")}
+      <button class="btn ghost small" data-a="eAdd" data-t="ing">＋ 材料を足す</button></div>
+    <div class="card"><p class="h2">作り方</p>${e.steps.map((t, i) => `<div class="row" style="flex-wrap:nowrap;margin-bottom:6px;align-items:flex-start"><span class="meta" style="flex:0 0 18px;padding-top:10px">${i + 1}</span><textarea data-st="${i}" rows="2">${esc(t)}</textarea><button class="chip gray" data-a="eDel" data-t="steps" data-i="${i}">消す</button></div>`).join("")}
+      <button class="btn ghost small" data-a="eAdd" data-t="steps">＋ 手順を足す</button></div>
+    <button class="btn" data-a="editSave">保存する</button>`;
+}
+// 編集中の入力を edit に写す（足す・消す・保存の前に）
+function grab(){
+  if (!edit) return;
+  document.querySelectorAll("[data-e]").forEach(x => edit[x.dataset.e] = x.value);
+  document.querySelectorAll("[data-ig]").forEach(x => edit.ing[+x.dataset.ig][x.dataset.f] = x.value);
+  document.querySelectorAll("[data-st]").forEach(x => edit.steps[+x.dataset.st] = x.value);
+}
+const dishPayload = (d, over = {}) => ({ ...d, bento: !!d.bento, freeze: !!d.freeze, want: !!d.want, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id), ...over });
 function detailView(){
   const d = dishOf(cur); if (!d){ view = "dish"; return dishView() }
   $("sb").textContent = d.name;
+  if (edit && edit.id === d.id) return editView();
   const photos = JSON.parse(d.photos || "[]"), steps = JSON.parse(d.steps || "[]"), ing = S.ing.filter(g => g.dish === d.id);
   const have = n => S.stock.some(s => s.name.replace(/\s/g, "") === n.replace(/\s/g, "") && s.level !== "ない");
   const pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
   return `<button class="back" data-go="dish">‹ 料理一覧</button>
     <div class="hero" style="background-color:${C[0]};${photos[0] ? `background-image:url('${thumb(photos[0], 900)}')` : "background-image:linear-gradient(135deg,#b5653a,#e3a15b)"}">${esc(d.name)}</div>
-    <div class="row"><span class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</span>${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
+    <div class="row">${STARS(num(d.stars) || 1)}${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
       <button class="chip ${d.want ? "yolk" : "gray"}" data-a="want">${d.want ? "★作りたい" : "☆作りたい"}</button></div>
+    <button class="btn" data-a="editOpen" style="margin:8px 0">✎ 編集する（名前・時間・材料・作り方など全部）</button>
     <div class="row" style="margin-top:6px"><span class="meta">種類</span>${PARTS.map(c => `<button class="chip ${c === kindOf(d) ? "" : "gray"}" data-a="setKind" data-v="${c}">${c}</button>`).join("")}</div>
     <div class="card row between"><div><div class="meta">最後に作った日</div><b>${d.last ? md(d.last) + "（" + wd(d.last) + "）" : "まだ"}</b></div><div><div class="meta">作った回数</div><b>${num(d.count)}回</b></div><div><div class="meta">調理時間${minsOf(d).real ? "（実績）" : "（推定）"}</div><b>${minsOf(d).m || "—"}分</b></div><div><div class="meta">1人分</div><b>${num(d.kcal) || "—"} kcal</b></div></div>
     ${d.kcal ? `<div class="card"><p class="h2">PFC（1人分）</p><div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend" style="margin-top:4px">P ${d.p}g ・ F ${d.f}g ・ C ${d.c}g</div></div>` : ""}
@@ -408,7 +433,19 @@ const A = {
   cat: e => { ls.set("cat", e.dataset.v); render() },
   kind: e => { ls.set("kind", e.dataset.v); ls.set("cat", "すべて"); render() },
   setKind: e => { const d = dishOf(cur); d.kind = e.dataset.v; render(); api("setKind", { kinds: { [d.id]: d.kind } }).then(render, () => {}) },
-  want: () => { const d = dishOf(cur); withBusy(() => api("apply", { data: { dishes: [{ ...d, want: !d.want, bento: !!d.bento, freeze: !!d.freeze, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id) }] }, est: !!d.est })) },
+  want: () => { const d = dishOf(cur); withBusy(() => api("apply", { data: { dishes: [dishPayload(d, { want: !d.want })] }, est: !!d.est })) },
+  star: e => { if (edit){ grab(); edit.stars = +e.dataset.v; return render() } const d = dishOf(cur); d.stars = e.dataset.v; render(); api("apply", { data: { dishes: [dishPayload(d)] }, est: !!d.est }).then(render, () => {}) },
+  editOpen: () => { const d = dishOf(cur); edit = { id: d.id, name: d.name, kind: kindOf(d), cat: d.cat || "", stars: num(d.stars) || 1, mins: d.mins || "", servings: d.servings || 2, bento: !!d.bento, freeze: !!d.freeze, want: !!d.want,
+    ing: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit, group }) => ({ name, qty, unit, group: group || "その他" })), steps: JSON.parse(d.steps || "[]") }; render(); scrollTo(0, 0) },
+  editCancel: () => { edit = null; render() },
+  eKind: e => { grab(); edit.kind = e.dataset.v; render() },
+  eFlag: e => { grab(); edit[e.dataset.v] = !edit[e.dataset.v]; render() },
+  eAdd: e => { grab(); edit[e.dataset.t].push(e.dataset.t === "ing" ? { name: "", qty: "", unit: "", group: "野菜" } : ""); render() },
+  eDel: e => { grab(); edit[e.dataset.t].splice(+e.dataset.i, 1); render() },
+  editSave: () => { grab(); const d = dishOf(cur), e = edit; if (!e.name.trim()) return toast("名前を入れてください");
+    const x = dishPayload(d, { name: e.name.trim(), kind: e.kind, cat: e.cat.trim(), stars: e.stars, mins: e.mins, servings: num(e.servings) || 2, bento: e.bento, freeze: e.freeze, want: e.want,
+      ingredients: e.ing.filter(g => g.name.trim()), steps: e.steps.map(t => t.trim()).filter(Boolean) });
+    edit = null; withBusy(async () => { await api("apply", { data: { dishes: [x] }, est: false }); toast("保存しました") }) },
   made: async e => { const id = e.dataset.id || cur, mins = ($("mins_" + id) || $("mins"))?.value; const ph = e.dataset.photo ? (await pickPhotos(false))[0] : null; if (e.dataset.photo && !ph) return;
     withBusy(async () => { await api("made", { dish: id, date: ymd(new Date()), photo: ph, mins }); toast("記録しました。材料を在庫から減らしました") }) },
   addDishPhoto: async () => { const ph = (await pickPhotos(false))[0]; if (ph) withBusy(() => api("photo", { dish: cur, photo: ph })) },
@@ -439,7 +476,7 @@ const A = {
 };
 function go(v){ view = v; render(); window.scrollTo(0, 0) }
 document.addEventListener("click", e => {
-  const g = e.target.closest("[data-go]"); if (g){ draft = null; cur = g.dataset.go === "detail" ? cur : null; go(g.dataset.go); return }
+  const g = e.target.closest("[data-go]"); if (g){ draft = null; edit = null; cur = g.dataset.go === "detail" ? cur : null; go(g.dataset.go); return }
   const a = e.target.closest("[data-a]"); if (a && A[a.dataset.a] && !busy) A[a.dataset.a](a);
 });
 document.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.matches(".item,.check")) e.target.click() });
