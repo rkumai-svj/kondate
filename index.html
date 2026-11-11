@@ -243,11 +243,11 @@ function weekView(){
       <p class="meta" style="margin:4px 0 0">夕食の平均 ${kc.length ? Math.round(kc.reduce((a, b) => a + b, 0) / kc.length) : "—"} kcal（1人分・推定）</p></div>`;
     h += plan.map(p => {
       const d = dishOf(p.dish) || { name: "（消えた料理）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
-      return `<div class="card day ${p.bento ? "bento" : ""}" data-a="swap" data-date="${p.date}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span></div><div style="min-width:0">
-        <div class="row between"><span class="dish">${esc(d.name)}</span><span class="meta">${d.id ? minsTxt(d) : ""}</span>${p.big ? '<span class="chip yolk">多めに作る</span>' : ""}</div>
-        <div class="side">${esc(p.sides)}</div>${p.bento ? `<div class="side" style="color:var(--fg)">お弁当：${esc(p.bento)}</div>` : ""}
+      return `<div class="card day ${p.bento ? "bento" : ""}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span></div><div style="min-width:0">
+        <div class="row between" data-a="swap" data-k="${p.date}|main" style="cursor:pointer"><span class="dish">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span>${p.big ? '<span class="chip yolk">多めに作る</span>' : ""}</div>
+        <div class="row" style="margin-top:4px">${sidesOf(p).map((x, i) => `<button class="chip gray" data-a="swap" data-k="${p.date}|${i}">${esc(x)}</button>`).join("")}<button class="chip" data-a="swap" data-k="${p.date}|new">＋1品</button></div>${p.bento ? `<div class="side" style="color:var(--fg)">お弁当：${esc(p.bento)}</div>` : ""}
         ${d.kcal ? `<div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend">${d.kcal} kcal・P${d.p} F${d.f} C${d.c}（1人分）</div>` : ""}
-      </div></div>${cur === "swap:" + p.date ? swapPicker(p) : ""}`;
+      </div></div>${String(cur).startsWith("swap:" + p.date + "|") ? swapPicker(p, cur.split("|")[1]) : ""}`;
     }).join("");
     if (plan[0].status === "案") h += `<button class="btn" data-a="confirm">この献立で確定</button>`;
   }
@@ -255,12 +255,18 @@ function weekView(){
     <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">この希望で組み直す</button>'}</div></div>`;
   return h;
 }
-function swapPicker(p){
-  const q = (ls.get("swapq", "") || "").trim();
-  const list = S.dishes.filter(d => !q || d.name.includes(q) || (d.cat || "").includes(q)).sort((a, b) => (a.last || "").localeCompare(b.last || ""));
-  return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）を差し替える</p><button class="btn" data-a="quick" data-date="${p.date}" style="margin-bottom:8px">時間がない・疲れた → 短く作れる料理に</button><input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">
-    <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="setDay" data-date="${p.date}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${minsTxt(d)}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
-    <button class="back" data-a="closeSwap" style="margin-top:8px">やめる</button></div>`;
+const sidesOf = p => String(p.sides || "").split("・").map(x => x.trim()).filter(Boolean);
+// 1品ずつ選ぶ：main＝主菜、数字＝その副菜、new＝副菜を足す
+function swapPicker(p, k){
+  const q = (ls.get("swapq", "") || "").trim(), main = k === "main", sides = sidesOf(p);
+  const list = S.dishes.filter(d => (main ? d.cat !== "副菜" : true) && (!q || d.name.includes(q) || (d.cat || "").includes(q)))
+    .sort((a, b) => main ? (a.last || "").localeCompare(b.last || "") : (a.cat === "副菜" ? 0 : 1) - (b.cat === "副菜" ? 0 : 1));
+  const title = main ? "主菜を選ぶ" : k === "new" ? "副菜・汁物を足す" : `「${esc(sides[+k])}」を替える`;
+  return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p>
+    ${main ? `<button class="btn" data-a="quick" data-date="${p.date}" style="margin-bottom:8px">時間がない・疲れた → 短く作れる料理に</button>` : `<div class="row" style="margin-bottom:8px;flex-wrap:nowrap"><input id="freeside" placeholder="リストにないもの（例：わかめの味噌汁）"><button class="btn small" data-a="pick" data-date="${p.date}" data-k="${k}" data-free="1">入れる</button></div>${k !== "new" ? `<button class="btn ghost small" data-a="pick" data-date="${p.date}" data-k="${k}" data-del="1" style="margin-bottom:8px">この品を外す</button>` : ""}`}
+    <input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">
+    <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="pick" data-date="${p.date}" data-k="${k}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${minsTxt(d)}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
+    <button class="back" data-a="closeSwap" style="margin-top:8px">閉じる</button></div>`;
 }
 function dishView(){
   const q = ls.get("q", ""), cat = ls.get("cat", "すべて");
@@ -366,9 +372,16 @@ const A = {
     withBusy(async () => { await api("made", { dish: cur, date: ymd(new Date()), photo: ph, mins }); toast("記録しました。材料を在庫から減らしました") }) },
   addDishPhoto: async () => { const ph = (await pickPhotos(false))[0]; if (ph) withBusy(() => api("photo", { dish: cur, photo: ph })) },
   fixDish: () => { const d = dishOf(cur); openInput("dish", "", { name: d.name, cat: d.cat, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit }) => ({ name, qty, unit })), servings: d.servings }) },
-  swap: e => { cur = "swap:" + e.dataset.date; ls.set("swapq", ""); render() },
+  swap: e => { const k = "swap:" + e.dataset.k; cur = cur === k ? null : k; ls.set("swapq", ""); render() },
   closeSwap: () => { cur = null; render() },
-  setDay: e => { const p = S.plan.find(x => x.date === e.dataset.date); p.dish = e.dataset.id; cur = null; render(); api("setDay", { date: e.dataset.date, dish: e.dataset.id }).then(render, () => {}) },
+  pick: e => { const p = S.plan.find(x => x.date === e.dataset.date), k = e.dataset.k, sides = sidesOf(p);
+    const name = e.dataset.free ? $("freeside").value.trim() : dishOf(e.dataset.id)?.name;
+    if (e.dataset.free && !name) return toast("入れるものを書いてください");
+    if (k === "main") p.dish = e.dataset.id;
+    else if (e.dataset.del) sides.splice(+k, 1);
+    else if (k === "new") sides.push(name); else sides[+k] = name;
+    p.sides = sides.join("・"); cur = null; render();
+    api("setDay", { date: p.date, dish: p.dish, sides: p.sides }).then(render, () => {}) },
   quick: e => { cur = null; withBusy(async () => { await api("quick", { date: e.dataset.date }, { queue: false }); toast("短く作れる料理に替えました") }) },
   confirm: () => { S.plan.forEach(p => p.status = "確定"); render(); api("confirm").then(render, () => {}) },
   plan: () => { const w = $("wants").value; withBusy(async () => { await api("plan", { wants: w }, { queue: false }); toast("組み直しました") }) },
