@@ -268,6 +268,7 @@ const byName = n => (S?.dishes || []).find(d => d.name === String(n).replace(/[�
 // その日の品：主菜・副菜・汁・米
 const itemsOf = p => [{ label: "主菜", name: dishOf(p.dish)?.name || "", d: dishOf(p.dish) }, ...sidesOf(p).map(n => ({ label: "副菜", name: n, d: byName(n) })),
   ...(p.soup ? [{ label: "汁", name: p.soup, d: byName(p.soup) }] : []), ...(p.rice ? [{ label: "米", name: p.rice, d: byName(p.rice) }] : [])].filter(x => x.name);
+const KINDS = ["主菜", "副菜", "汁", "米"], kindOf = d => d.kind || (d.cat === "副菜" ? "副菜" : d.cat === "汁物" ? "汁" : "主菜");
 const RICE = ["白米", "玄米", "雑穀米", "炊き込みご飯", "なし（丼・麺など）"];
 // 1品ずつ選ぶ：main＝主菜、数字＝その副菜、new＝副菜を足す、soup＝汁、rice＝米
 function swapPicker(p, k){
@@ -275,13 +276,13 @@ function swapPicker(p, k){
   const cur0 = k === "soup" ? p.soup : k === "rice" ? p.rice : main ? "" : sides[+k];
   const title = main ? "主菜を選ぶ" : k === "new" ? "副菜を足す" : k === "soup" ? "汁物" : k === "rice" ? "お米" : `「${esc(cur0)}」を替える`;
   const free = `<div class="row" style="margin-bottom:8px;flex-wrap:nowrap"><input id="freeside" placeholder="${k === "rice" ? "その他（例：麦ごはん）" : "リストにないもの（例：わかめの味噌汁）"}"><button class="btn small" data-a="pick" data-date="${p.date}" data-k="${k}" data-free="1">入れる</button></div>${!main && k !== "new" && cur0 ? `<button class="btn ghost small" data-a="pick" data-date="${p.date}" data-k="${k}" data-del="1" style="margin-bottom:8px">外す</button>` : ""}`;
-  if (k === "rice") return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p><div class="row" style="margin-bottom:8px">${RICE.map(r => `<button class="chip ${r === p.rice ? "" : "gray"}" data-a="pick" data-date="${p.date}" data-k="rice" data-name="${r}">${r}</button>`).join("")}</div>${free}<button class="back" data-a="closeSwap">閉じる</button></div>`;
-  const rank = d => k === "soup" ? (d.cat === "汁物" ? 0 : 1) : (d.cat === "副菜" ? 0 : 1);
-  const list = S.dishes.filter(d => (main ? !["副菜", "汁物"].includes(d.cat) : true) && (!q || d.name.includes(q) || (d.cat || "").includes(q)))
-    .sort((a, b) => main ? (a.last || "").localeCompare(b.last || "") : rank(a) - rank(b));
+  if (k === "rice") return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p><div class="row" style="margin-bottom:8px">${[...new Set([...RICE, ...S.dishes.filter(d => kindOf(d) === "米").map(d => d.name)])].map(r => `<button class="chip ${r === p.rice ? "" : "gray"}" data-a="pick" data-date="${p.date}" data-k="rice" data-name="${r}">${r}</button>`).join("")}</div>${free}<button class="back" data-a="closeSwap">閉じる</button></div>`;
+  const want = main ? "主菜" : k === "soup" ? "汁" : "副菜";
+  const list = S.dishes.filter(d => kindOf(d) === want && (!q || d.name.includes(q) || (d.cat || "").includes(q)))
+    .sort((a, b) => (a.last || "").localeCompare(b.last || ""));
   return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p>
     ${main ? `<button class="btn" data-a="quick" data-date="${p.date}" style="margin-bottom:8px">時間がない・疲れた → 短く作れる料理に</button>` : free}
-    <input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">
+    <input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">${list.length ? "" : `<p class="meta">「${want}」の料理がまだありません。上の欄に書くか、料理タブで種類を「${want}」にしてください</p>`}
     <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="pick" data-date="${p.date}" data-k="${k}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${minsTxt(d)}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
     <button class="back" data-a="closeSwap" style="margin-top:8px">閉じる</button></div>`;
 }
@@ -305,17 +306,18 @@ function cookView(){
     }).join("");
 }
 function dishView(){
-  const q = ls.get("q", ""), cat = ls.get("cat", "すべて");
-  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.map(d => d.cat).filter(c => c && c !== "作りたい"))];
-  const list = S.dishes.filter(d => (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
+  const q = ls.get("q", ""), cat = ls.get("cat", "すべて"), kd = ls.get("kind", "すべて");
+  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.filter(d => kd === "すべて" || kindOf(d) === kd).map(d => d.cat).filter(c => c && c !== "作りたい"))];
+  const list = S.dishes.filter(d => (kd === "すべて" || kindOf(d) === kd) && (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
     && (cat === "すべて" || (cat === "作りたい" ? d.want : cat === "お弁当" ? d.bento : cat === "作ったことない" ? (d.new && !num(d.count)) : d.cat === cat)));
   $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => d.new && !num(d.count)).length}品`;
   return inputCard() + (draft ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) +
     `<input id="q" placeholder="料理名・材料で探す（例：厚揚げ）" value="${esc(q)}">
+    <div class="row" style="margin:8px 0">${["すべて", ...KINDS].map(c => `<button class="chip ${c === kd ? "" : "gray"}" data-a="kind" data-v="${c}">${c} ${c === "すべて" ? S.dishes.length : S.dishes.filter(d => kindOf(d) === c).length}</button>`).join("")}</div>
     <div class="scroll">${cats.map(c => `<button class="chip ${c === cat ? "" : "gray"}" data-a="cat" data-v="${esc(c)}">${esc(c)}</button>`).join("")}</div>
     <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}">
       <div class="ph" style="background-color:${C[i % C.length]};${ph ? `background-image:url('${thumb(ph, 200)}')` : ""}">${ph ? "" : esc(d.name[0])}</div>
-      <div style="min-width:0"><div class="dish">${esc(d.name)}</div><div class="meta">${esc(d.cat)}${minsTxt(d) ? "・" + minsTxt(d) : ""}${d.est ? "・推定" : ""}</div></div>
+      <div style="min-width:0"><div class="dish">${esc(d.name)}</div><div class="meta">${kindOf(d)}・${esc(d.cat)}${minsTxt(d) ? "・" + minsTxt(d) : ""}${d.est ? "・推定" : ""}</div></div>
       <div style="text-align:right">${!(d.new && !num(d.count)) ? `<div class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</div>` : '<span class="chip warn">作ったことない</span>'}<div class="meta">${d.last ? md(d.last) + "・" : ""}${num(d.count)}回</div></div></div>` }).join("") || '<div class="empty">見つかりません</div>'}</div>`;
 }
 function detailView(){
@@ -328,6 +330,7 @@ function detailView(){
     <div class="hero" style="background-color:${C[0]};${photos[0] ? `background-image:url('${thumb(photos[0], 900)}')` : "background-image:linear-gradient(135deg,#b5653a,#e3a15b)"}">${esc(d.name)}</div>
     <div class="row"><span class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</span>${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
       <button class="chip ${d.want ? "yolk" : "gray"}" data-a="want">${d.want ? "★作りたい" : "☆作りたい"}</button></div>
+    <div class="row" style="margin-top:6px"><span class="meta">種類</span>${KINDS.map(c => `<button class="chip ${c === kindOf(d) ? "" : "gray"}" data-a="setKind" data-v="${c}">${c}</button>`).join("")}</div>
     <div class="card row between"><div><div class="meta">最後に作った日</div><b>${d.last ? md(d.last) + "（" + wd(d.last) + "）" : "まだ"}</b></div><div><div class="meta">作った回数</div><b>${num(d.count)}回</b></div><div><div class="meta">調理時間${minsOf(d).real ? "（実績）" : "（推定）"}</div><b>${minsOf(d).m || "—"}分</b></div><div><div class="meta">1人分</div><b>${num(d.kcal) || "—"} kcal</b></div></div>
     ${d.kcal ? `<div class="card"><p class="h2">PFC（1人分）</p><div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend" style="margin-top:4px">P ${d.p}g ・ F ${d.f}g ・ C ${d.c}g</div></div>` : ""}
     <div class="card"><p class="h2">材料（${num(d.servings) || 2}人分）</p><table>${ing.map(g => `<tr><td>${esc(g.name)}</td><td>${esc(g.qty)}${esc(g.unit)} ${have(g.name) ? '<span class="chip">冷蔵庫</span>' : '<span class="chip warn">買う</span>'}</td></tr>`).join("") || '<tr><td class="meta">まだありません</td><td></td></tr>'}</table></div>
@@ -403,11 +406,13 @@ const A = {
   save: () => withBusy(async () => { await api("apply", { data: draft.res }); toast("保存しました"); draft = null }),
   open: e => { cur = e.dataset.id; draft = null; go("detail") },
   cat: e => { ls.set("cat", e.dataset.v); render() },
+  kind: e => { ls.set("kind", e.dataset.v); ls.set("cat", "すべて"); render() },
+  setKind: e => { const d = dishOf(cur); d.kind = e.dataset.v; render(); api("setKind", { kinds: { [d.id]: d.kind } }).then(render, () => {}) },
   want: () => { const d = dishOf(cur); withBusy(() => api("apply", { data: { dishes: [{ ...d, want: !d.want, bento: !!d.bento, freeze: !!d.freeze, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id) }] }, est: !!d.est })) },
   made: async e => { const id = e.dataset.id || cur, mins = ($("mins_" + id) || $("mins"))?.value; const ph = e.dataset.photo ? (await pickPhotos(false))[0] : null; if (e.dataset.photo && !ph) return;
     withBusy(async () => { await api("made", { dish: id, date: ymd(new Date()), photo: ph, mins }); toast("記録しました。材料を在庫から減らしました") }) },
   addDishPhoto: async () => { const ph = (await pickPhotos(false))[0]; if (ph) withBusy(() => api("photo", { dish: cur, photo: ph })) },
-  fixDish: () => { const d = dishOf(cur); openInput("dish", "", { name: d.name, cat: d.cat, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit }) => ({ name, qty, unit })), servings: d.servings }) },
+  fixDish: () => { const d = dishOf(cur); openInput("dish", "", { name: d.name, kind: kindOf(d), cat: d.cat, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit }) => ({ name, qty, unit })), servings: d.servings }) },
   swap: e => { const k = "swap:" + e.dataset.k; cur = cur === k ? null : k; ls.set("swapq", ""); render() },
   closeSwap: () => { cur = null; render() },
   pick: e => { const p = S.plan.find(x => x.date === e.dataset.date), k = e.dataset.k, sides = sidesOf(p);
