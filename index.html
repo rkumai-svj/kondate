@@ -264,7 +264,7 @@ function swapPicker(p){
 }
 function dishView(){
   const q = ls.get("q", ""), cat = ls.get("cat", "すべて");
-  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.map(d => d.cat).filter(Boolean))];
+  const cats = ["すべて", "作りたい", "お弁当", "作ったことない", ...new Set(S.dishes.map(d => d.cat).filter(c => c && c !== "作りたい"))];
   const list = S.dishes.filter(d => (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
     && (cat === "すべて" || (cat === "作りたい" ? d.want : cat === "お弁当" ? d.bento : cat === "作ったことない" ? (d.new && !num(d.count)) : d.cat === cat)));
   $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => d.new && !num(d.count)).length}品`;
