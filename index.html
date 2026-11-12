@@ -130,7 +130,9 @@ const API = "https://script.google.com/macros/s/AKfycbw9Vgeg-WL_5Pe3CEzzcqRVr2Kb
 const WD = "日月火水木金土", GROUPS = ["魚","肉","野菜","調味料","その他"];
 const C = ["#b5653a","#5b8f4e","#c08a2b","#4f7aa8","#a8574f","#7a6aa8","#3f8f86"];
 const ls = { get(k, d){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v) }catch(_){ return d } }, set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch(_){} } };
-let lastErr = "", S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false, edit = null;
+let lastErr = "", S = ls.get("state", null), me = ls.get("me", null), view = "week", cur = null, draft = null, busy = false, edit = null, backTo = "dish", skipM = null;
+const ym = (n = 0) => { const d = new Date(); return ymd(new Date(d.getFullYear(), d.getMonth() + n, 1)).slice(0, 7) };
+const skipOf = m => new Set(String(S.settings["skip_" + m] || "").split(",").filter(Boolean)); // その月「いらない」料理のid
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const $ = id => document.getElementById(id);
 const num = x => Number(x) || 0;
@@ -249,8 +251,8 @@ function weekView(){
     h += plan.map(p => {
       const d = dishOf(p.dish) || { name: p.dish ? "（消えた料理）" : "（未定・押して選ぶ）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
       const lab = t => `<span class="meta" style="flex:0 0 28px">${t}</span>`;
-      return `<div class="card day ${p.bento ? "bento" : ""}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span><button class="chip" data-a="cook" data-date="${p.date}" style="margin-top:6px">作る</button>${p.status === "案" ? `<button class="chip yolk" data-a="confirm" data-date="${p.date}" style="margin-top:6px">確定</button>` : '<span class="meta" style="margin-top:6px">確定済</span>'}</div><div style="min-width:0;display:flex;flex-direction:column;gap:4px">
-        <div class="row" style="flex-wrap:nowrap">${lab("主菜")}<span class="dish" data-a="swap" data-k="${p.date}|main" style="cursor:pointer;flex:1">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span></div>
+      return `<div class="card day ${p.bento ? "bento" : ""}" data-a="dayOpen" data-date="${p.date}" style="cursor:pointer"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span><button class="chip" data-a="cook" data-date="${p.date}" style="margin-top:6px">作る</button>${p.status === "案" ? `<button class="chip yolk" data-a="confirm" data-date="${p.date}" style="margin-top:6px">確定</button>` : '<span class="meta" style="margin-top:6px">確定済</span>'}</div><div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+        <div class="row" style="flex-wrap:nowrap">${lab("主菜")}<span class="dish" style="flex:1">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span><button class="chip gray" data-a="swap" data-k="${p.date}|main">替える</button></div>
         ${p.big ? '<div><span class="chip yolk">多めに作る（お弁当へ）</span></div>' : ""}
         <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${lab("副菜")}<div class="row">${sidesOf(p).map((x, i) => `<button class="chip gray" data-a="swap" data-k="${p.date}|${i}">${esc(x)}</button>`).join("")}<button class="chip" data-a="swap" data-k="${p.date}|new">＋</button></div></div>
         <div class="row">${lab("汁")}<button class="chip ${p.soup ? "gray" : ""}" data-a="swap" data-k="${p.date}|soup">${p.soup ? esc(p.soup) : "＋"}</button></div>
@@ -312,13 +314,17 @@ function dishView(){
   const list = S.dishes.filter(d => (kd === "すべて" || kindOf(d) === kd) && (!q || d.name.includes(q) || (d.cat || "").includes(q) || S.ing.some(g => g.dish === d.id && g.name.includes(q)))
 );
   $("sb").textContent = `レパートリー ${S.dishes.length}品・作ったことない ${S.dishes.filter(d => d.new && !num(d.count)).length}品`;
-  return inputCard() + (draft ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) +
+  const sk = skipM ? skipOf(skipM) : null;
+  const head = skipM ? `<div class="card" style="border-color:var(--acc)"><div class="row between"><b class="h2" style="margin:0">${+skipM.slice(5)}月に作る料理</b><button class="chip" data-a="skipMode">終わる</button></div>
+      <div class="row" style="margin-top:6px">${[0, 1].map(n => `<button class="chip ${ym(n) === skipM ? "" : "gray"}" data-a="skipMode" data-m="${ym(n)}">${n ? "来月" : "今月"}</button>`).join("")}<span class="meta">押すと いる⇄いらない。いらない ${sk.size}品は献立の案に出ません</span></div></div>`
+    : `<button class="btn ghost" data-a="skipMode" data-m="${ym(new Date().getDate() > 20 ? 1 : 0)}">月の いる／いらない を選ぶ</button>`;
+  return inputCard() + (draft || skipM ? "" : `<button class="btn" data-a="newDish">＋ 新しい料理を入れる（声・本の写真）</button>`) + head +
     `<input id="q" placeholder="料理名・材料・種類で探す（例：厚揚げ、鶏肉）" value="${esc(q)}">
     <div class="row" style="margin:8px 0">${["すべて", ...PARTS].map(c => `<button class="chip ${c === kd ? "" : "gray"}" data-a="kind" data-v="${c}">${c} ${c === "すべて" ? S.dishes.length : S.dishes.filter(d => kindOf(d) === c).length}</button>`).join("")}</div>
-    <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}">
+    <div class="list">${list.map((d, i) => { const ph = JSON.parse(d.photos || "[]")[0]; return `<div class="card item" tabindex="0" data-a="open" data-id="${d.id}"${sk && sk.has(d.id) ? ' style="opacity:.45"' : ""}>
       <div class="ph" style="background-color:${C[i % C.length]};${ph ? `background-image:url('${thumb(ph, 200)}')` : ""}">${ph ? "" : esc(d.name[0])}</div>
       <div style="min-width:0"><div class="dish">${esc(d.name)}</div><div class="meta">${kindOf(d)}・${esc(d.cat)}${minsTxt(d) ? "・" + minsTxt(d) : ""}${d.est ? "・推定" : ""}</div></div>
-      <div style="text-align:right">${!(d.new && !num(d.count)) ? `<div class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</div>` : '<span class="chip warn">作ったことない</span>'}<div class="meta">${d.last ? md(d.last) + "・" : ""}${num(d.count)}回</div></div></div>` }).join("") || '<div class="empty">見つかりません</div>'}</div>`;
+      <div style="text-align:right">${sk ? (sk.has(d.id) ? '<span class="chip warn">いらない</span>' : '<span class="chip">いる</span>') : !(d.new && !num(d.count)) ? `<div class="stars">${"★".repeat(num(d.stars) || 1)}${"☆".repeat(3 - (num(d.stars) || 1))}</div>` : '<span class="chip warn">作ったことない</span>'}<div class="meta">${d.last ? md(d.last) + "・" : ""}${num(d.count)}回</div></div></div>` }).join("") || '<div class="empty">見つかりません</div>'}</div>`;
 }
 const STARS = n => [1, 2, 3].map(i => `<button class="chip ${i <= n ? "yolk" : "gray"}" data-a="star" data-v="${i}">★</button>`).join("");
 function editView(){
@@ -352,7 +358,7 @@ function detailView(){
   const photos = JSON.parse(d.photos || "[]"), steps = JSON.parse(d.steps || "[]"), ing = S.ing.filter(g => g.dish === d.id);
   const have = n => S.stock.some(s => s.name.replace(/\s/g, "") === n.replace(/\s/g, "") && s.level !== "ない");
   const pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
-  return `<button class="back" data-go="dish">‹ 料理一覧</button>
+  return `<button class="back" data-go="${backTo}">‹ ${backTo === "week" ? "献立" : "料理一覧"}</button>
     <div class="hero" style="background-color:${C[0]};${photos[0] ? `background-image:url('${thumb(photos[0], 900)}')` : "background-image:linear-gradient(135deg,#b5653a,#e3a15b)"}">${esc(d.name)}</div>
     <div class="row">${STARS(num(d.stars) || 1)}${d.cat ? `<span class="chip">${esc(d.cat)}</span>` : ""}${d.bento ? '<span class="chip yolk">お弁当OK</span>' : ""}${d.freeze ? '<span class="chip gray">冷凍OK</span>' : ""}${d.est ? '<span class="chip gray">推定</span>' : ""}
       <button class="chip ${d.want ? "yolk" : "gray"}" data-a="want">${d.want ? "★作りたい" : "☆作りたい"}</button></div>
@@ -431,7 +437,13 @@ const A = {
   dropLine: e => { const i = +e.dataset.i, r = draft.res, line = r.summary[i]; r.summary.splice(i, 1);
     ["stock", "money", "dishes"].forEach(k => r[k] = (r[k] || []).filter(x => !line.includes(x.name || x.store || "\u0000"))); render() },
   save: () => withBusy(async () => { await api("apply", { data: draft.res }); toast("保存しました"); draft = null }),
-  open: e => { cur = e.dataset.id; draft = null; go("detail") },
+  open: e => { if (skipM) return A.skip(e); cur = e.dataset.id; draft = null; backTo = "dish"; go("detail") },
+  dayOpen: e => { const p = S.plan.find(x => x.date === e.dataset.date);
+    if (!dishOf(p.dish)){ cur = "swap:" + p.date + "|main"; return render() } // 未定の日は主菜を選ぶ
+    cur = p.dish; draft = null; edit = null; backTo = "week"; go("detail") },
+  skipMode: e => { skipM = e.dataset.m || null; render() },
+  skip: e => { const s = skipOf(skipM), id = e.dataset.id; s.has(id) ? s.delete(id) : s.add(id);
+    const v = [...s].join(","); S.settings["skip_" + skipM] = v; render(); api("skip", { month: skipM, value: v }).then(render, () => {}) },
   cat: e => { ls.set("cat", e.dataset.v); render() },
   kind: e => { ls.set("kind", e.dataset.v); ls.set("cat", "すべて"); render() },
   setKind: e => { const d = dishOf(cur); d.kind = e.dataset.v; render(); api("setKind", { kinds: { [d.id]: d.kind } }).then(render, () => {}) },
