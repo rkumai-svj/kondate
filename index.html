@@ -259,6 +259,7 @@ function weekView(){
         <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${lab("副菜")}<div class="row">${sidesOf(p).map((x, i) => `<button class="chip gray" data-a="swap" data-k="${p.date}|${i}">${esc(x)}</button>`).join("")}<button class="chip" data-a="swap" data-k="${p.date}|new">＋</button></div></div>
         <div class="row">${lab("汁")}<button class="chip ${p.soup ? "gray" : ""}" data-a="swap" data-k="${p.date}|soup">${p.soup ? esc(p.soup) : "＋"}</button></div>
         <div class="row">${lab("米")}<button class="chip ${p.rice ? "gray" : ""}" data-a="swap" data-k="${p.date}|rice">${p.rice ? esc(p.rice) : "＋"}</button></div>
+        ${short(p).length ? `<div style="background:var(--warn-soft);border-radius:8px;padding:6px 8px"><b style="color:var(--warn)">足りない：</b>${short(p).map(x => `<span style="color:var(--warn)">${esc(x.name)}</span> <button class="chip" data-a="buyBack" data-n="${esc(x.name)}">買うものに戻す</button>`).join(" ")}</div>` : ""}
         ${p.bento ? `<div class="side" style="color:var(--fg)">お弁当：${esc(p.bento)}</div>` : ""}
         ${d.kcal ? `<div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend">主菜 ${d.kcal} kcal・P${d.p} F${d.f} C${d.c}（1人分）</div>` : ""}
       </div></div>${String(cur).startsWith("swap:" + p.date + "|") && !(p === td && cur.endsWith("|main")) ? swapPicker(p, cur.split("|")[1]) : ""}`;
@@ -274,6 +275,8 @@ function wishCard(){
     <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="wants" placeholder="例：ハンバーグ食べたい／月曜は餃子／水曜は簡単に／白菜を使いたい"><button class="btn small" data-a="wishAdd" style="white-space:nowrap;flex:0 0 auto">足す</button></div>
     <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">今すぐこの希望で組み直す</button>'}</div></div>`;
 }
+// 足りない＝買うものから消したのに、その日の献立で使う材料
+const short = p => S.buy.filter(b => b.done === "x" && String(b.for).split("・").some(f => f.startsWith(p.date.slice(5).replace("-", "/") + " ")));
 const sidesOf = p => String(p.sides || "").split("・").map(x => x.trim()).filter(Boolean);
 const byName = n => (S?.dishes || []).find(d => d.name === String(n).replace(/[（(].*$/, "").trim());
 // その日の品：主菜・副菜・汁・米
@@ -396,11 +399,14 @@ function fridgeView(){
   return h + (st.length ? "" : `<div class="card empty">冷蔵庫は空です。「買った」から入れてください</div>`);
 }
 function buyView(){
-  const b = S.buy;
+  const b = S.buy.filter(x => x.done !== "x"), gone = S.buy.filter(x => x.done === "x");
   $("sb").textContent = b.length ? `${b.length}品・残り ${b.filter(x => !x.done).length}品` : "";
-  if (!b.length) return `<div class="card empty">買うものはありません（献立を組むと出ます）</div>` + (draft ? inputCard() : "");
-  return `<div class="card"><p class="meta" style="margin:0">献立に要る材料から、冷蔵庫にある分を引いた残り</p></div>` +
-    GROUPS.map(g => { const xs = b.filter(x => (GROUPS.includes(x.group) ? x.group : "その他") === g); return xs.length ? `<div class="card"><p class="h2">${g}</p>${xs.map(x => `<div class="check ${x.done ? "done" : ""}" role="checkbox" aria-checked="${!!x.done}" tabindex="0" data-a="buyDone" data-n="${esc(x.name)}"><div class="box"></div><span class="nm">${esc(x.name)} ${x.qty ? esc(x.qty) + esc(x.unit) : ""}</span><span class="why">${esc(x.for)}</span></div>`).join("")}</div>` : "" }).join("") +
+  const add = `<div class="card"><p class="meta" style="margin:0 0 6px">献立に要る材料から、冷蔵庫にある分を引いた残り。手で足す・✕で消すこともできます</p>
+    <div class="row" style="flex-wrap:nowrap"><input id="bn" placeholder="足すもの（例：牛乳）"><input id="bq" placeholder="量" style="width:70px;flex:0 0 70px"><select id="bg" style="width:84px;flex:0 0 84px">${GROUPS.map(g => `<option ${g === "その他" ? "selected" : ""}>${g}</option>`).join("")}</select><button class="btn small" data-a="buyAdd" style="white-space:nowrap;flex:0 0 auto">足す</button></div></div>`;
+  const goneCard = gone.length ? `<div class="card" style="border-color:var(--warn)"><p class="h2" style="color:var(--warn)">消したもの（献立では使う）</p>${gone.map(x => `<div class="row between" style="flex-wrap:nowrap;padding:6px 0"><span><b style="color:var(--warn)">${esc(x.name)}</b> <span class="meta">${esc(x.qty)}・${esc(x.for)}</span></span><button class="chip" data-a="buyBack" data-n="${esc(x.name)}">戻す</button></div>`).join("")}</div>` : "";
+  if (!b.length) return add + `<div class="card empty">買うものはありません（献立を組むと出ます）</div>` + goneCard + (draft ? inputCard() : "");
+  return add +
+    GROUPS.map(g => { const xs = b.filter(x => (GROUPS.includes(x.group) ? x.group : "その他") === g); return xs.length ? `<div class="card"><p class="h2">${g}</p>${xs.map(x => `<div class="check ${x.done ? "done" : ""}" role="checkbox" aria-checked="${!!x.done}" tabindex="0" data-a="buyDone" data-n="${esc(x.name)}"><div class="box"></div><span class="nm">${esc(x.name)} ${x.qty ? esc(x.qty) + esc(x.unit) : ""}</span><span class="why">${esc(x.for)}</span><button class="chip gray" data-a="buyDel" data-n="${esc(x.name)}" aria-label="消す">✕</button></div>`).join("")}</div>` : "" }).join("") + goneCard +
     (draft ? inputCard() : `<button class="btn ghost" data-a="boughtToFridge">チェックしたものを冷蔵庫へ入れる</button>`);
 }
 function logView(){
@@ -501,8 +507,12 @@ const A = {
   wishAdd: () => { const t = $("wants").value.trim(); if (!t) return toast("希望を書いてください"); const W = JSON.parse(S.settings.wishes || "[]"); W.push({ t, d: ymd(new Date()) }); S.settings.wishes = JSON.stringify(W); render(); api("wish", { add: t }).then(render, () => {}) },
   wishDel: e => { const t = e.dataset.t, W = JSON.parse(S.settings.wishes || "[]").filter(x => x.t !== t); S.settings.wishes = JSON.stringify(W); render(); api("wish", { del: t }).then(render, () => {}) },
   plan: () => { const w = $("wants").value; withBusy(async () => { await api("plan", { wants: w }, { queue: false }); toast("組み直しました") }) },
+  buyAdd: () => { const name = $("bn").value.trim(), qty = $("bq").value.trim(), group = $("bg").value; if (!name) return toast("足すものを書いてください");
+    S.buy.push({ name, qty, unit: "", group, for: "手で追加", done: "" }); render(); api("buyAdd", { name, qty, group }).then(render, () => {}) },
+  buyDel: e => { const n = e.dataset.n, x = S.buy.find(b => b.name === n); if (x.for === "手で追加") S.buy = S.buy.filter(b => b !== x); else x.done = "x"; render(); api("buyDel", { name: n }).then(render, () => {}) },
+  buyBack: e => { const x = S.buy.find(b => b.name === e.dataset.n); if (x) x.done = ""; render(); api("buyBack", { name: e.dataset.n }).then(render, () => {}) },
   buyDone: e => { const x = S.buy.find(b => b.name === e.dataset.n); x.done = x.done ? "" : "1"; ls.set("state", S); render(); api("buyDone", { name: x.name, done: !!x.done }).catch(() => {}) },
-  boughtToFridge: () => { const xs = S.buy.filter(b => b.done); if (!xs.length) return toast("チェックしたものがありません"); openInput("buy", xs.map(x => `${x.name}${x.qty ? " " + x.qty + x.unit : ""}`).join("、") + " を買った") },
+  boughtToFridge: () => { const xs = S.buy.filter(b => b.done === "1"); if (!xs.length) return toast("チェックしたものがありません"); openInput("buy", xs.map(x => `${x.name}${x.qty ? " " + x.qty + x.unit : ""}`).join("、") + " を買った") },
   bday: e => { const s = S.settings, set = new Set(s.bento_days.split(",").filter(Boolean)); set.has(e.dataset.v) ? set.delete(e.dataset.v) : set.add(e.dataset.v); s.bento_days = [...set].sort().join(","); render() },
   saveSettings: () => { const v = { bento_days: S.settings.bento_days }; ["plan_day", "plan_hour", "notify_day", "notify_hour", "shop_day", "chika_email"].forEach(k => v[k] = $("s_" + k).value.trim()); withBusy(async () => { await api("settings", { values: v }); toast("保存しました") }) },
 };
