@@ -154,16 +154,18 @@ async function call(action, body = {}){
   if (j.error) throw new Error(j.error);
   return j;
 }
+let inflight = 0;
 async function api(action, body, { queue = true } = {}){
+  inflight++;
   try{
     const j = await call(action, body);
-    if (j.dishes){ S = j; ls.set("state", S) }
+    if (j.dishes && inflight === 1){ S = j; ls.set("state", S) } // 送信中のものが残っている間の返事は捨てる（✓が戻るのを防ぐ）
     return j;
   }catch(e){
     if (queue && e instanceof TypeError){ const q = ls.get("queue", []); q.push([action, body]); ls.set("queue", q); toast("電波がないので、あとで送ります") }
     else toast(e.message);
     throw e;
-  }
+  }finally{ inflight-- }
 }
 async function flush(){
   const q = ls.get("queue", []); if (!q.length) return;
@@ -461,7 +463,8 @@ const A = {
     else if (e.dataset.del) sides.splice(+k, 1);
     else if (k === "new") sides.push(name); else sides[+k] = name;
     p.sides = sides.join("・"); cur = null; render();
-    api("setDay", { date: p.date, dish: p.dish, sides: p.sides, soup: p.soup || "", rice: p.rice || "" }).then(render, () => {}) },
+    const f = k === "main" ? "dish" : k === "soup" || k === "rice" ? k : "sides"; // 変えた欄だけ送る（相手の変更を戻さない）
+    api("setDay", { date: p.date, [f]: f === "dish" ? p.dish : p[f] || "" }).then(render, () => {}) },
   addToday: () => { const t = ymd(new Date()); if (!S.plan.some(p => p.date === t)) S.plan.push({ date: t, dish: "", sides: "", soup: "", rice: "白米", bento: "", big: "", status: S.plan[0]?.status || "確定" });
     cur = "swap:" + t + "|main"; render(); api("setDay", { date: t, dish: "", sides: "", soup: "", rice: "白米" }).then(render, () => {}) },
   cook: e => { cur = e.dataset.date; draft = null; go("cook") },
