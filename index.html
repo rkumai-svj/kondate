@@ -236,7 +236,7 @@ function setupView(){
     <button class="btn" style="margin-top:12px" data-a="login">はじめる</button></div>`;
 }
 function weekView(){
-  const plan = [...S.plan].sort((a, b) => a.date.localeCompare(b.date));
+  const plan = S.plan.filter(p => p.date >= ymd(new Date())).sort((a, b) => a.date.localeCompare(b.date)); // 過ぎた日は出さない
   $("sb").textContent = plan.length ? `${md(plan[0].date)}（${wd(plan[0].date)}）〜${md(plan[plan.length - 1].date)}（${wd(plan[plan.length - 1].date)}）・確定 ${plan.filter(p => p.status === "確定").length}/${plan.length}` : "";
   if (!S.dishes.length) return inputCard() + `<div class="card empty">料理がまだありません。<br>「料理」から入れると献立を組めます</div>`;
   let h = "";
@@ -247,33 +247,37 @@ function weekView(){
       <p class="meta" style="margin:4px 0 0">夕食の平均 ${kc.length ? Math.round(kc.reduce((a, b) => a + b, 0) / kc.length) : "—"} kcal（1人分・推定）</p></div>`;
     const td = plan.find(p => p.date === ymd(new Date()));
     if (!td) h += `<div class="card"><p class="h2">今日の献立がまだありません</p><button class="btn" data-a="addToday">今日の分を入れる</button></div>`;
-    if (td) h += `<div class="card" style="border-color:var(--acc)"><p class="h2">今日つくる</p><p style="margin:0 0 8px">${esc(itemsOf(td).filter(x => x.label !== "米").map(x => x.name).join("・"))}</p><button class="btn" data-a="cook" data-date="${td.date}">作る画面を開く</button></div>`;
+    const tdm = td && dishOf(td.dish), tdDone = tdm && S.made.some(m => m.dish === tdm.id && m.date === td.date);
+    if (td) h += `<div class="card" style="border-color:var(--acc)"><p class="h2">今日つくる</p><p style="margin:0 0 8px">${esc(itemsOf(td).filter(x => x.label !== "米").map(x => x.name).join("・"))}</p><div class="grid2"><button class="btn" data-a="cook" data-date="${td.date}">作る画面を開く</button>${tdm ? (tdDone ? '<span class="chip" style="align-self:center;justify-self:center">作った✓</span>' : `<button class="btn ghost" data-a="made" data-id="${tdm.id}">作った</button>`) : ""}</div><button class="chip gray" data-a="swap" data-k="${td.date}|main" style="margin-top:8px">今日は気分じゃない → 替える</button></div>${String(cur).startsWith("swap:" + td.date + "|main") ? swapPicker(td, "main") : ""}`;
+    h += wishCard();
     h += plan.map(p => {
-      const d = dishOf(p.dish) || { name: p.dish ? "（消えた料理）" : "（未定・押して選ぶ）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
+      const d = dishOf(p.dish) || { name: p.dish || "（未定・押して選ぶ）" }, pf = [num(d.p) * 4, num(d.f) * 9, num(d.c) * 4], t = pf.reduce((a, b) => a + b, 0) || 1;
       const lab = t => `<span class="meta" style="flex:0 0 28px">${t}</span>`;
-      return `<div class="card day ${p.bento ? "bento" : ""}" data-a="dayOpen" data-date="${p.date}" style="cursor:pointer"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span><button class="chip" data-a="cook" data-date="${p.date}" style="margin-top:6px">作る</button>${p.status === "案" ? `<button class="chip yolk" data-a="confirm" data-date="${p.date}" style="margin-top:6px">確定</button>` : '<span class="meta" style="margin-top:6px">確定済</span>'}</div><div style="min-width:0;display:flex;flex-direction:column;gap:4px">
-        <div class="row" style="flex-wrap:nowrap">${lab("主菜")}<span class="dish" style="flex:1">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span><button class="chip gray" data-a="swap" data-k="${p.date}|main">替える</button></div>
+      return `<div class="card day ${p.bento ? "bento" : ""}"><div class="dl"><b>${wd(p.date)}</b><span>${md(p.date)}</span><button class="chip" data-a="cook" data-date="${p.date}" style="margin-top:6px">作る</button>${p.status === "案" ? `<button class="chip yolk" data-a="confirm" data-date="${p.date}" style="margin-top:6px">確定</button>` : '<span class="meta" style="margin-top:6px">確定済</span>'}</div><div style="min-width:0;display:flex;flex-direction:column;gap:4px">
+        <div class="row" style="flex-wrap:nowrap">${lab("主菜")}<span class="dish" style="flex:1;cursor:pointer" data-a="dayOpen" data-date="${p.date}">${esc(d.name)} <span class="meta">›</span></span><span class="meta">${d.id ? minsTxt(d) : ""}</span><button class="chip gray" data-a="swap" data-k="${p.date}|main" style="padding:8px 14px">替える</button></div>
         ${p.big ? '<div><span class="chip yolk">多めに作る（お弁当へ）</span></div>' : ""}
         <div class="row" style="flex-wrap:nowrap;align-items:flex-start">${lab("副菜")}<div class="row">${sidesOf(p).map((x, i) => `<button class="chip gray" data-a="swap" data-k="${p.date}|${i}">${esc(x)}</button>`).join("")}<button class="chip" data-a="swap" data-k="${p.date}|new">＋</button></div></div>
         <div class="row">${lab("汁")}<button class="chip ${p.soup ? "gray" : ""}" data-a="swap" data-k="${p.date}|soup">${p.soup ? esc(p.soup) : "＋"}</button></div>
         <div class="row">${lab("米")}<button class="chip ${p.rice ? "gray" : ""}" data-a="swap" data-k="${p.date}|rice">${p.rice ? esc(p.rice) : "＋"}</button></div>
         ${p.bento ? `<div class="side" style="color:var(--fg)">お弁当：${esc(p.bento)}</div>` : ""}
         ${d.kcal ? `<div class="pfc"><i style="width:${pf[0] / t * 100}%;background:var(--p)"></i><i style="width:${pf[1] / t * 100}%;background:var(--f)"></i><i style="width:${pf[2] / t * 100}%;background:var(--c)"></i></div><div class="legend">主菜 ${d.kcal} kcal・P${d.p} F${d.f} C${d.c}（1人分）</div>` : ""}
-      </div></div>${String(cur).startsWith("swap:" + p.date + "|") ? swapPicker(p, cur.split("|")[1]) : ""}`;
+      </div></div>${String(cur).startsWith("swap:" + p.date + "|") && !(p === td && cur.endsWith("|main")) ? swapPicker(p, cur.split("|")[1]) : ""}`;
     }).join("");
     if (plan.some(p => p.status === "案")) h += `<button class="btn" data-a="confirm">残りを全部確定</button>`;
   }
+  return S.plan.some(p => p.date >= ymd(new Date())) ? h : h + wishCard();
+}
+function wishCard(){
   const W = (() => { try { return JSON.parse(S.settings.wishes || "[]") } catch (_) { return [] } })();
-  h += `<div class="card"><p class="h2">希望メモ（組む前に入れておく）</p><p class="meta" style="margin-top:0">次の献立の案に必ず使います。週の自動の案を組んだら消えます</p>
+  return `<div class="card"><p class="h2">希望メモ（組む前に入れておく）</p><p class="meta" style="margin-top:0">次の献立の案に必ず使います。週の自動の案を組んだら消えます</p>
     ${W.map(x => `<div class="row between check" data-a="wishDel" data-t="${esc(x.t)}"><span class="nm">${esc(x.t)}</span><span class="meta">${md(x.d)} ✕</span></div>`).join("")}
-    <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="wants" placeholder="例：ハンバーグ食べたい／月曜は餃子／水曜は簡単に／白菜を使いたい"><button class="btn small" data-a="wishAdd">足す</button></div>
+    <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="wants" placeholder="例：ハンバーグ食べたい／月曜は餃子／水曜は簡単に／白菜を使いたい"><button class="btn small" data-a="wishAdd" style="white-space:nowrap;flex:0 0 auto">足す</button></div>
     <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">今すぐこの希望で組み直す</button>'}</div></div>`;
-  return h;
 }
 const sidesOf = p => String(p.sides || "").split("・").map(x => x.trim()).filter(Boolean);
 const byName = n => (S?.dishes || []).find(d => d.name === String(n).replace(/[（(].*$/, "").trim());
 // その日の品：主菜・副菜・汁・米
-const itemsOf = p => [{ label: "主菜", name: dishOf(p.dish)?.name || "", d: dishOf(p.dish) }, ...sidesOf(p).map(n => ({ label: "副菜", name: n, d: byName(n) })),
+const itemsOf = p => [{ label: "主菜", name: dishOf(p.dish)?.name || p.dish || "", d: dishOf(p.dish) }, ...sidesOf(p).map(n => ({ label: "副菜", name: n, d: byName(n) })),
   ...(p.soup ? [{ label: "汁", name: p.soup, d: byName(p.soup) }] : []), ...(p.rice ? [{ label: "米", name: p.rice, d: byName(p.rice) }] : [])].filter(x => x.name);
 const PARTS = ["主菜", "副菜", "汁", "米"], kindOf = d => d.kind || (d.cat === "副菜" ? "副菜" : d.cat === "汁物" ? "汁" : "主菜");
 const RICE = ["白米", "玄米", "雑穀米", "炊き込みご飯", "なし（丼・麺など）"];
@@ -282,15 +286,19 @@ function swapPicker(p, k){
   const q = (ls.get("swapq", "") || "").trim(), main = k === "main", sides = sidesOf(p);
   const cur0 = k === "soup" ? p.soup : k === "rice" ? p.rice : main ? "" : sides[+k];
   const title = main ? "主菜を選ぶ" : k === "new" ? "副菜を足す" : k === "soup" ? "汁物" : k === "rice" ? "お米" : `「${esc(cur0)}」を替える`;
-  const free = `<div class="row" style="margin-bottom:8px;flex-wrap:nowrap"><input id="freeside" placeholder="${k === "rice" ? "その他（例：麦ごはん）" : "リストにないもの（例：わかめの味噌汁）"}"><button class="btn small" data-a="pick" data-date="${p.date}" data-k="${k}" data-free="1">入れる</button></div>${!main && k !== "new" && cur0 ? `<button class="btn ghost small" data-a="pick" data-date="${p.date}" data-k="${k}" data-del="1" style="margin-bottom:8px">外す</button>` : ""}`;
+  const free = `<div class="row" style="margin-bottom:8px;flex-wrap:nowrap"><input id="freeside" placeholder="${k === "rice" ? "その他（例：麦ごはん）" : main ? "食べたいものを書く（例：牛丼）" : "リストにないもの（例：わかめの味噌汁）"}"><button class="btn small" data-a="pick" data-date="${p.date}" data-k="${k}" data-free="1">入れる</button></div>${!main && k !== "new" && cur0 ? `<button class="btn ghost small" data-a="pick" data-date="${p.date}" data-k="${k}" data-del="1" style="margin-bottom:8px">外す</button>` : ""}`;
   if (k === "rice") return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p><div class="row" style="margin-bottom:8px">${[...new Set([...RICE, ...S.dishes.filter(d => kindOf(d) === "米").map(d => d.name)])].map(r => `<button class="chip ${r === p.rice ? "" : "gray"}" data-a="pick" data-date="${p.date}" data-k="rice" data-name="${r}">${r}</button>`).join("")}</div>${free}<button class="back" data-a="closeSwap">閉じる</button></div>`;
   const want = main ? "主菜" : k === "soup" ? "汁" : "副菜";
-  const list = S.dishes.filter(d => kindOf(d) === want && (!q || d.name.includes(q) || (d.cat || "").includes(q)))
-    .sort((a, b) => (a.last || "").localeCompare(b.last || ""));
+  const so = ls.get("swapsort", "久しぶり"), sk = skipOf(p.date.slice(0, 7));
+  const haveN = d => { const g = S.ing.filter(x => x.dish === d.id && x.group !== "調味料"); return g.length ? g.filter(x => S.stock.some(s => s.name.replace(/\s/g, "") === x.name.replace(/\s/g, ""))).length / g.length : 0 };
+  const SORT = { 久しぶり: (a, b) => (a.last || "").localeCompare(b.last || ""), 冷蔵庫にある: (a, b) => haveN(b) - haveN(a), 簡単: (a, b) => (minsOf(a).m || 99) - (minsOf(b).m || 99), さっぱり: (a, b) => (num(a.kcal) || 999) - (num(b.kcal) || 999), がっつり: (a, b) => num(b.kcal) - num(a.kcal) };
+  const list = S.dishes.filter(d => kindOf(d) === want && !sk.has(d.id) && (!q || d.name.includes(q) || (d.cat || "").includes(q)))
+    .sort(SORT[so] || SORT.久しぶり);
   return `<div class="card"><p class="h2">${md(p.date)}（${wd(p.date)}）${title}</p>
-    ${main ? `<button class="btn" data-a="quick" data-date="${p.date}" style="margin-bottom:8px">時間がない・疲れた → 短く作れる料理に</button>` : free}
+    ${main ? `<button class="btn" data-a="quick" data-date="${p.date}" style="margin-bottom:8px">時間がない・疲れた → 短く作れる料理に</button><button class="btn ghost small" data-a="pick" data-date="${p.date}" data-k="main" data-name="作らない（外食・買う）" style="margin-bottom:8px">この日は作らない（外食・買う）</button>` : ""}${free}
+    <div class="row" style="margin-bottom:6px"><span class="meta">今の気分で並べる</span>${Object.keys(SORT).map(k => `<button class="chip ${k === so ? "" : "gray"}" data-a="swapSort" data-v="${k}">${k}</button>`).join("")}</div>
     <input id="swapq" placeholder="料理名・種類で探す" value="${esc(q)}">${list.length ? "" : `<p class="meta">「${want}」の料理がまだありません。上の欄に書くか、料理タブで種類を「${want}」にしてください</p>`}
-    <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="pick" data-date="${p.date}" data-k="${k}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${minsTxt(d)}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
+    <div class="picker list" style="margin-top:8px">${list.map(d => `<div class="row between check" data-a="pick" data-date="${p.date}" data-k="${k}" data-id="${d.id}"><span class="nm">${esc(d.name)}</span><span class="why">${esc(d.cat)}・${minsTxt(d)}${so === "冷蔵庫にある" ? "・材料" + Math.round(haveN(d) * 100) + "%あり" : so === "さっぱり" || so === "がっつり" ? "・" + (num(d.kcal) || "—") + "kcal" : ""}・${d.last ? "最後 " + md(d.last) : "まだ"}</span></div>`).join("")}</div>
     <button class="back" data-a="closeSwap" style="margin-top:8px">閉じる</button></div>`;
 }
 // 作る画面：その日の品を1枚に。材料と作り方、品ごとに「作った」
@@ -302,6 +310,7 @@ function cookView(){
     itemsOf(p).map(x => {
       const d = x.d;
       if (x.label === "米") return `<div class="card row between"><span><span class="meta">米</span>　<b>${esc(x.name)}</b></span></div>`;
+      if (!d && x.name.startsWith("作らない")) return `<div class="card"><b>${esc(x.name)}</b></div>`;
       if (!d) return `<div class="card"><span class="meta">${x.label}</span>　<b>${esc(x.name)}</b><p class="meta">作り方がまだありません</p>${draft ? "" : `<button class="btn ghost small" data-a="teach" data-n="${esc(x.name)}">作り方を入れる（声・本の写真）</button>`}</div>`;
       const ing = S.ing.filter(g => g.dish === d.id), steps = JSON.parse(d.steps || "[]"), k = p.big && x.label === "主菜" ? "×1.5" : "";
       const done = S.made.some(m => m.dish === d.id && m.date === ymd(new Date()));
@@ -469,15 +478,18 @@ const A = {
   fixDish: () => { const d = dishOf(cur); openInput("dish", "", { name: d.name, kind: kindOf(d), cat: d.cat, steps: JSON.parse(d.steps || "[]"), ingredients: S.ing.filter(g => g.dish === d.id).map(({ name, qty, unit }) => ({ name, qty, unit })), servings: d.servings }) },
   swap: e => { const k = "swap:" + e.dataset.k; cur = cur === k ? null : k; ls.set("swapq", ""); render() },
   closeSwap: () => { cur = null; render() },
+  swapSort: e => { ls.set("swapsort", e.dataset.v); render() },
   pick: e => { const p = S.plan.find(x => x.date === e.dataset.date), k = e.dataset.k, sides = sidesOf(p);
     const name = e.dataset.free ? $("freeside").value.trim() : e.dataset.name || dishOf(e.dataset.id)?.name;
     if (e.dataset.free && !name) return toast("入れるものを書いてください");
-    if (k === "main") p.dish = e.dataset.id;
+    if (k === "main") p.dish = e.dataset.id || name; // 一覧にないものは名前のまま入れる
     else if (k === "soup") p.soup = e.dataset.del ? "" : name;
     else if (k === "rice") p.rice = e.dataset.del ? "" : name;
     else if (e.dataset.del) sides.splice(+k, 1);
     else if (k === "new") sides.push(name); else sides[+k] = name;
-    p.sides = sides.join("・"); cur = null; render();
+    p.sides = sides.join("・"); p.status = "確定"; cur = null; // 手で選んだ日は確定（裏側も同じ）
+    if (k === "main" && name && name.startsWith("作らない")){ Object.assign(p, { sides: "", soup: "", rice: "なし" }); render(); return api("setDay", { date: p.date, dish: p.dish, sides: "", soup: "", rice: "なし" }).then(render, () => {}) } // 作らない日は副菜・汁も外す（買うものから消える）
+    render();
     const f = k === "main" ? "dish" : k === "soup" || k === "rice" ? k : "sides"; // 変えた欄だけ送る（相手の変更を戻さない）
     api("setDay", { date: p.date, [f]: f === "dish" ? p.dish : p[f] || "" }).then(render, () => {}) },
   addToday: () => { const t = ymd(new Date()); if (!S.plan.some(p => p.date === t)) S.plan.push({ date: t, dish: "", sides: "", soup: "", rice: "白米", bento: "", big: "", status: S.plan[0]?.status || "確定" });
