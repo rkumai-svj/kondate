@@ -263,8 +263,11 @@ function weekView(){
     }).join("");
     if (plan.some(p => p.status === "案")) h += `<button class="btn" data-a="confirm">残りを全部確定</button>`;
   }
-  h += `<div class="card"><p class="h2">組み直す</p><textarea id="wants" placeholder="食べたいもの・希望（例：月曜は魚がいい）"></textarea>
-    <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">この希望で組み直す</button>'}</div></div>`;
+  const W = (() => { try { return JSON.parse(S.settings.wishes || "[]") } catch (_) { return [] } })();
+  h += `<div class="card"><p class="h2">希望メモ（組む前に入れておく）</p><p class="meta" style="margin-top:0">次の献立の案に必ず使います。週の自動の案を組んだら消えます</p>
+    ${W.map(x => `<div class="row between check" data-a="wishDel" data-t="${esc(x.t)}"><span class="nm">${esc(x.t)}</span><span class="meta">${md(x.d)} ✕</span></div>`).join("")}
+    <div class="row" style="flex-wrap:nowrap;margin-top:6px"><input id="wants" placeholder="例：ハンバーグ食べたい／月曜は餃子／水曜は簡単に／白菜を使いたい"><button class="btn small" data-a="wishAdd">足す</button></div>
+    <div style="margin-top:8px">${busy ? '<div class="busy"><div class="spin"></div>組んでいます（30秒ほど）</div>' : '<button class="btn ghost" data-a="plan">今すぐこの希望で組み直す</button>'}</div></div>`;
   return h;
 }
 const sidesOf = p => String(p.sides || "").split("・").map(x => x.trim()).filter(Boolean);
@@ -483,6 +486,8 @@ const A = {
   teach: e => openInput("dish", e.dataset.n + " の作り方："),
   quick: e => { cur = null; withBusy(async () => { await api("quick", { date: e.dataset.date }, { queue: false }); toast("短く作れる料理に替えました") }) },
   confirm: e => { const d = e.dataset.date; S.plan.forEach(p => { if (!d || p.date === d) p.status = "確定" }); render(); api("confirm", d ? { date: d } : {}).then(render, () => {}) },
+  wishAdd: () => { const t = $("wants").value.trim(); if (!t) return toast("希望を書いてください"); const W = JSON.parse(S.settings.wishes || "[]"); W.push({ t, d: ymd(new Date()) }); S.settings.wishes = JSON.stringify(W); render(); api("wish", { add: t }).then(render, () => {}) },
+  wishDel: e => { const t = e.dataset.t, W = JSON.parse(S.settings.wishes || "[]").filter(x => x.t !== t); S.settings.wishes = JSON.stringify(W); render(); api("wish", { del: t }).then(render, () => {}) },
   plan: () => { const w = $("wants").value; withBusy(async () => { await api("plan", { wants: w }, { queue: false }); toast("組み直しました") }) },
   buyDone: e => { const x = S.buy.find(b => b.name === e.dataset.n); x.done = x.done ? "" : "1"; ls.set("state", S); render(); api("buyDone", { name: x.name, done: !!x.done }).catch(() => {}) },
   boughtToFridge: () => { const xs = S.buy.filter(b => b.done); if (!xs.length) return toast("チェックしたものがありません"); openInput("buy", xs.map(x => `${x.name}${x.qty ? " " + x.qty + x.unit : ""}`).join("、") + " を買った") },
